@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Timer,
   Play,
   Pause,
   RotateCcw,
@@ -15,16 +14,6 @@ import { api } from '../services/api';
 import { Task, FocusSession, FocusSessionType } from '../types/database';
 import { getTodayDateString, formatDisplayDate } from '../utils/dateUtils';
 import confetti from 'canvas-confetti';
-
-const PRESETS: { label: string; minutes: number }[] = [
-  { label: '15 min', minutes: 15 },
-  { label: '25 min', minutes: 25 },
-  { label: '45 min', minutes: 45 },
-  { label: '60 min', minutes: 60 },
-  { label: '90 min', minutes: 90 },
-];
-
-const BREAK_PRESETS = [5, 10, 15, 20];
 
 export const FocusPage: React.FC = () => {
   const { activeChallenge } = useChallenge();
@@ -305,50 +294,43 @@ export const FocusPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Duration Adjustment */}
+        {/* Duration Adjustment — 1-minute steps, no presets */}
         {!isRunning && (
-          <div className="mb-6 space-y-3">
-            {/* +/- nudge buttons */}
-            <div className="flex items-center justify-center gap-3">
+          <div className="mb-6">
+            <div className="flex items-center justify-center gap-4">
+              {/* Decrease by 1 */}
               <button
-                onClick={() => setCurrentDuration(getCurrentDuration() - 5)}
-                className="w-9 h-9 rounded-full border border-[#E8E2D9] flex items-center justify-center text-[#77727B] hover:bg-[#FAF7F2] hover:text-[#29272B] transition-colors"
-                aria-label="Decrease by 5 minutes"
+                onClick={() => setCurrentDuration(getCurrentDuration() - 1)}
+                className="w-11 h-11 rounded-full border-2 border-[#E8E2D9] flex items-center justify-center text-[#77727B] hover:border-[#C9879B] hover:text-[#C9879B] active:scale-95 transition-all"
+                aria-label="Decrease by 1 minute"
               >
-                <Minus className="w-3.5 h-3.5" />
+                <Minus className="w-4 h-4" />
               </button>
-              <span className="text-xs text-[#77727B] font-medium w-24 text-center">
-                {sessionType === 'focus' ? workDuration : sessionType === 'short_break' ? shortBreakDuration : longBreakDuration} min
-              </span>
-              <button
-                onClick={() => setCurrentDuration(getCurrentDuration() + 5)}
-                className="w-9 h-9 rounded-full border border-[#E8E2D9] flex items-center justify-center text-[#77727B] hover:bg-[#FAF7F2] hover:text-[#29272B] transition-colors"
-                aria-label="Increase by 5 minutes"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* Preset pills — contextual to mode */}
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {(sessionType === 'focus' ? PRESETS : BREAK_PRESETS.map(m => ({ label: `${m} min`, minutes: m }))).map((p) => {
-                const cur = getCurrentDuration();
-                const isActive = cur === p.minutes;
-                return (
-                  <button
-                    key={p.minutes}
-                    onClick={() => setCurrentDuration(p.minutes)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                      isActive
-                        ? 'bg-[#C9879B] text-white border-[#C9879B]'
-                        : 'bg-white text-[#77727B] border-[#E8E2D9] hover:border-[#C9879B] hover:text-[#29272B]'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+              {/* Current duration label */}
+              <div className="text-center w-24">
+                <p className="text-2xl font-black text-[#29272B]">
+                  {sessionType === 'focus'
+                    ? workDuration
+                    : sessionType === 'short_break'
+                    ? shortBreakDuration
+                    : longBreakDuration}
+                </p>
+                <p className="text-[10px] text-[#77727B] font-medium uppercase tracking-wider">minutes</p>
+              </div>
+
+              {/* Increase by 1 */}
+              <button
+                onClick={() => setCurrentDuration(getCurrentDuration() + 1)}
+                className="w-11 h-11 rounded-full border-2 border-[#E8E2D9] flex items-center justify-center text-[#77727B] hover:border-[#C9879B] hover:text-[#C9879B] active:scale-95 transition-all"
+                aria-label="Increase by 1 minute"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
+            <p className="text-[11px] text-[#77727B] text-center mt-2">
+              Tap the clock to type any value · range: 1–180 min
+            </p>
           </div>
         )}
 
