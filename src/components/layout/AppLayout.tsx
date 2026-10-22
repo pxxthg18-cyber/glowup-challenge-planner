@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { MobileBottomNav } from './MobileBottomNav';
 import { ChallengeWizardModal } from '../challenge/ChallengeWizardModal';
 
 export const AppLayout: React.FC = () => {
@@ -11,7 +12,7 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] flex">
-      {/* Sidebar navigation */}
+      {/* Desktop sidebar (hidden on mobile) */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -27,10 +28,14 @@ export const AppLayout: React.FC = () => {
           onOpenCreateJournal={() => navigate('/journal')}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page content — extra bottom padding on mobile to clear bottom nav */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom navigation — hidden on lg+ */}
+      <MobileBottomNav />
 
       {/* Global Challenge Wizard Modal */}
       <ChallengeWizardModal

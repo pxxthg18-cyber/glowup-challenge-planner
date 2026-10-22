@@ -4,7 +4,6 @@ import {
   Plus,
   Search,
   Calendar,
-  Smile,
   Heart,
   Award,
   Sparkles,
@@ -13,8 +12,11 @@ import {
   Edit,
   X,
   ChevronDown,
+  ChevronUp,
   PenTool,
   HelpCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
 import { api } from '../services/api';
@@ -27,6 +29,9 @@ export const JournalPage: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [search, setSearch] = useState('');
   const [selectedMoodFilter, setSelectedMoodFilter] = useState<number | 'All'>('All');
+
+  // Reflection prompt collapse toggle (optional for user)
+  const [showPromptBanner, setShowPromptBanner] = useState(true);
 
   // Challenge day progress
   const progress = activeChallenge
@@ -52,6 +57,7 @@ export const JournalPage: React.FC = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [activeGuidedTopic, setActiveGuidedTopic] = useState<DailyJournalTopic | null>(null);
+  const [showModalPromptIdea, setShowModalPromptIdea] = useState(false);
 
   const [entryDate, setEntryDate] = useState<string>(getTodayDateString());
   const [title, setTitle] = useState('');
@@ -93,6 +99,7 @@ export const JournalPage: React.FC = () => {
       setLessonsLearned(entry.lessons_learned || '');
       setTomorrowPriority(entry.tomorrow_priorities?.[0] || '');
       setActiveGuidedTopic(null);
+      setShowModalPromptIdea(false);
     } else {
       setEditingEntry(null);
       setEntryDate(getTodayDateString());
@@ -107,6 +114,7 @@ export const JournalPage: React.FC = () => {
       setLessonsLearned('');
       setTomorrowPriority('');
       setActiveGuidedTopic(null);
+      setShowModalPromptIdea(false);
     }
     setIsEditorOpen(true);
   };
@@ -125,6 +133,7 @@ export const JournalPage: React.FC = () => {
     setLessonsLearned('');
     setTomorrowPriority('');
     setActiveGuidedTopic(topic);
+    setShowModalPromptIdea(true);
     setIsEditorOpen(true);
   };
 
@@ -198,121 +207,150 @@ export const JournalPage: React.FC = () => {
   }, [entries, search, selectedMoodFilter]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-serif-title text-[#29272B]">
-            Daily Reflection & Mindfulness Journal
+            Daily Reflection & Journal
           </h1>
-          <p className="text-sm text-[#77727B] mt-1">
-            Receive personalized prompts for each day of your challenge, record daily gratitude, and track your inner transformation.
+          <p className="text-xs sm:text-sm text-[#77727B] mt-1">
+            Capture your daily reflections, record simple gratitudes, and track your mindset over time.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <button
             onClick={handleExportData}
-            className="px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-semibold text-[#29272B] flex items-center gap-1.5 shadow-2xs transition-colors"
+            className="px-3 sm:px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-semibold text-[#29272B] flex items-center gap-1.5 shadow-2xs transition-colors min-h-[42px]"
             title="Export journal entries as JSON"
           >
             <Download className="w-3.5 h-3.5 text-[#77727B]" /> Export
           </button>
           <button
             onClick={() => handleOpenEditor()}
-            className="px-4 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors min-h-[42px]"
           >
             <Plus className="w-3.5 h-3.5" /> Write Reflection
           </button>
         </div>
       </div>
 
-      {/* 🌟 GUIDED CHALLENGE JOURNAL TOPIC CARD */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-white via-[#FAF7F2] to-[#F2DDE3]/40 border border-[#E8E2D9] p-6 lg:p-7 shadow-xs overflow-hidden">
-        <div className="absolute top-0 right-0 w-44 h-44 bg-[#F2DDE3]/40 rounded-full blur-2xl pointer-events-none" />
+      {/* 🌟 GUIDED CHALLENGE JOURNAL TOPIC CARD (Shown ONLY when an active challenge is selected) */}
+      {activeChallenge && (
+        <div className="relative rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white via-[#FAF7F2] to-[#F2DDE3]/30 border border-[#E8E2D9] shadow-xs overflow-hidden transition-all">
+          <div className="absolute top-0 right-0 w-44 h-44 bg-[#F2DDE3]/30 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#C9879B] text-white shadow-xs flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 fill-white" />
-                Day {selectedPromptDay} Guided Topic
+          {/* Collapsible header */}
+          <div className="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-[#E8E2D9]/60">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#C9879B] text-white shadow-2xs flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 fill-white" />
+                Day {selectedPromptDay} Prompt (Optional)
               </span>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white border border-[#E8E2D9] text-[#77727B]">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white border border-[#E8E2D9] text-[#77727B]">
                 {currentTopic.theme}
               </span>
             </div>
 
-            {/* Switch prompt day selector */}
-            <div className="flex items-center gap-1.5 text-xs text-[#77727B]">
-              <span className="font-medium">Topic for:</span>
-              <select
-                value={selectedPromptDay}
-                onChange={(e) => setSelectedPromptDay(parseInt(e.target.value, 10))}
-                className="px-2.5 py-1 rounded-xl bg-white border border-[#E8E2D9] text-xs font-semibold text-[#29272B] cursor-pointer shadow-2xs focus:outline-hidden"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPromptBanner(!showPromptBanner)}
+                className="text-xs text-[#77727B] hover:text-[#29272B] flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/80 transition-colors"
+                title={showPromptBanner ? "Collapse prompt" : "Expand prompt"}
               >
-                {Array.from({ length: totalChallengeDays }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>
-                    Day {d} {d === currentChallengeDay ? '• (Today)' : ''}
-                  </option>
-                ))}
-              </select>
+                {showPromptBanner ? (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Hide</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">In the mood? View Prompt</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <h2 className="text-xl sm:text-2xl font-bold font-serif-title text-[#29272B] tracking-tight">
-              "{currentTopic.title}"
-            </h2>
-            <p className="text-sm sm:text-base text-[#77727B] leading-relaxed max-w-3xl">
-              {currentTopic.prompt}
-            </p>
-          </div>
+          {/* Prompt Body — only when expanded */}
+          {showPromptBanner && (
+            <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-[#77727B]">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Browse Day:</span>
+                  <select
+                    value={selectedPromptDay}
+                    onChange={(e) => setSelectedPromptDay(parseInt(e.target.value, 10))}
+                    className="px-2.5 py-1 rounded-xl bg-white border border-[#E8E2D9] text-xs font-semibold text-[#29272B] cursor-pointer shadow-2xs focus:outline-hidden"
+                  >
+                    {Array.from({ length: totalChallengeDays }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        Day {d} {d === currentChallengeDay ? '• (Today)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#E8E2D9]/70">
-            <p className="text-xs sm:text-sm text-[#C9879B] font-serif-title italic flex items-center gap-1.5">
-              <span>✦</span> "{currentTopic.affirmation}"
-            </p>
+              <div className="space-y-1.5">
+                <h2 className="text-lg sm:text-xl font-bold font-serif-title text-[#29272B] tracking-tight">
+                  "{currentTopic.title}"
+                </h2>
+                <p className="text-xs sm:text-sm text-[#77727B] leading-relaxed max-w-3xl">
+                  {currentTopic.prompt}
+                </p>
+              </div>
 
-            <button
-              onClick={() => handleWriteWithTopic(currentTopic)}
-              className="px-4 py-2 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
-            >
-              <PenTool className="w-3.5 h-3.5" /> Write on This Topic
-            </button>
-          </div>
+              <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#E8E2D9]/70">
+                <p className="text-xs sm:text-sm text-[#C9879B] font-serif-title italic flex items-center gap-1.5">
+                  <span>✦</span> "{currentTopic.affirmation}"
+                </p>
+
+                <button
+                  onClick={() => handleWriteWithTopic(currentTopic)}
+                  className="px-3.5 py-2 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0 min-h-[38px]"
+                >
+                  <PenTool className="w-3.5 h-3.5" /> Use This Topic
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Filter toolbar */}
-      <div className="flex flex-wrap items-center gap-3 bg-white p-3.5 rounded-2xl border border-[#E8E2D9] shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 bg-white p-3 sm:p-3.5 rounded-2xl border border-[#E8E2D9] shadow-xs">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-3.5 h-3.5 text-[#77727B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search journal reflections, wins, or gratitudes..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
+            placeholder="Search journal reflections or gratitudes..."
+            className="w-full pl-8 pr-3 py-2 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
           />
         </div>
 
-        <select
-          value={selectedMoodFilter}
-          onChange={(e) => setSelectedMoodFilter(e.target.value === 'All' ? 'All' : parseInt(e.target.value, 10))}
-          className="px-3 py-1.5 rounded-xl border border-[#E8E2D9] text-xs bg-white text-[#29272B]"
-        >
-          <option value="All">All Moods</option>
-          <option value="5">Mood: 5/5 (Radiant ✨)</option>
-          <option value="4">Mood: 4/5 (Content 🌸)</option>
-          <option value="3">Mood: 3/5 (Neutral ☁️)</option>
-          <option value="2">Mood: 2/5 (Tired 🌧️)</option>
-          <option value="1">Mood: 1/5 (Struggling ⚡)</option>
-        </select>
+        <div className="flex items-center justify-between sm:justify-start gap-2">
+          <select
+            value={selectedMoodFilter}
+            onChange={(e) => setSelectedMoodFilter(e.target.value === 'All' ? 'All' : parseInt(e.target.value, 10))}
+            className="flex-1 sm:flex-none px-3 py-2 rounded-xl border border-[#E8E2D9] text-xs bg-white text-[#29272B]"
+          >
+            <option value="All">All Moods</option>
+            <option value="5">Mood: 5/5 (Radiant ✨)</option>
+            <option value="4">Mood: 4/5 (Content 🌸)</option>
+            <option value="3">Mood: 3/5 (Neutral ☁️)</option>
+            <option value="2">Mood: 2/5 (Tired 🌧️)</option>
+            <option value="1">Mood: 1/5 (Struggling ⚡)</option>
+          </select>
 
-        <span className="text-xs text-[#77727B] font-medium ml-auto">
-          {filteredEntries.length} reflection{filteredEntries.length === 1 ? '' : 's'}
-        </span>
+          <span className="text-xs text-[#77727B] font-medium shrink-0 px-1">
+            {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+          </span>
+        </div>
       </div>
 
       {/* Journal entries cards */}
@@ -320,16 +358,16 @@ export const JournalPage: React.FC = () => {
         {filteredEntries.map((entry) => (
           <div
             key={entry.id}
-            className="bg-white rounded-3xl border border-[#E8E2D9] p-6 shadow-xs hover:shadow-soft transition-all space-y-4"
+            className="bg-white rounded-2xl sm:rounded-3xl border border-[#E8E2D9] p-4 sm:p-6 shadow-xs hover:shadow-soft transition-all space-y-3.5 sm:space-y-4"
           >
             {/* Header info */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#F2DDE3] flex items-center justify-center text-[#C9879B]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]/70 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#F2DDE3] flex items-center justify-center text-[#C9879B] shrink-0">
                   <BookOpen className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[#29272B]">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[#29272B] truncate">
                     {entry.title || 'Daily Entry'}
                   </h3>
                   <span className="text-[11px] text-[#77727B]">
@@ -338,21 +376,22 @@ export const JournalPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 {entry.mood_rating && (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#FAF7F2] border border-[#E8E2D9] text-[#29272B]">
-                    Mood: {entry.mood_rating}/5 {entry.mood_rating === 5 ? '✨' : entry.mood_rating >= 4 ? '🌸' : '☁️'}
+                  <span className="text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full bg-[#FAF7F2] border border-[#E8E2D9] text-[#29272B]">
+                    {entry.mood_rating}/5 {entry.mood_rating === 5 ? '✨' : entry.mood_rating >= 4 ? '🌸' : '☁️'}
                   </span>
                 )}
                 <button
                   onClick={() => handleOpenEditor(entry)}
-                  className="text-xs text-[#C9879B] hover:text-[#B26F84] font-medium"
+                  className="text-xs text-[#C9879B] hover:text-[#B26F84] font-medium p-1"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDelete(entry.id)}
-                  className="text-xs text-[#77727B] hover:text-red-500 font-medium"
+                  className="text-xs text-[#77727B] hover:text-red-500 font-medium p-1"
+                  aria-label="Delete entry"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -392,7 +431,7 @@ export const JournalPage: React.FC = () => {
 
             {/* Main Content */}
             {entry.content && (
-              <p className="text-xs sm:text-sm text-[#29272B] leading-relaxed whitespace-pre-wrap">
+              <p className="text-xs sm:text-sm text-[#29272B] leading-relaxed whitespace-pre-wrap break-words">
                 {entry.content}
               </p>
             )}
@@ -412,41 +451,54 @@ export const JournalPage: React.FC = () => {
         ))}
 
         {filteredEntries.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-[#E8E2D9] text-xs text-[#77727B]">
-            No journal entries found. Click "Write Reflection" to begin your mindful diary!
+          <div className="text-center py-12 sm:py-16 bg-white rounded-2xl sm:rounded-3xl border border-[#E8E2D9] p-6 text-xs text-[#77727B]">
+            <BookOpen className="w-8 h-8 text-[#C9879B] mx-auto mb-2 opacity-60" />
+            <p className="font-semibold text-sm text-[#29272B] mb-1">No reflections yet</p>
+            <p>Click "Write Reflection" above whenever you want to jot down a thought, gratitude, or daily note.</p>
           </div>
         )}
       </div>
 
-      {/* Write/Edit Journal Modal */}
+      {/* Write/Edit Journal Modal (Responsive & Mobile-Friendly) */}
       {isEditorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#29272B]/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#E8E2D9] shadow-medium w-full max-w-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-5 border-b border-[#E8E2D9] flex items-center justify-between bg-[#FAF7F2]/50">
-              <h2 className="text-base font-bold text-[#29272B] font-serif-title flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#29272B]/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#E8E2D9] shadow-medium w-full max-w-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-4 sm:px-6 py-4 border-b border-[#E8E2D9] flex items-center justify-between bg-[#FAF7F2]/50 shrink-0">
+              <h2 className="text-sm sm:text-base font-bold text-[#29272B] font-serif-title flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-[#C9879B]" />
-                {editingEntry ? 'Edit Reflection' : 'New Mindful Reflection'}
+                {editingEntry ? 'Edit Reflection' : 'New Journal Entry'}
               </h2>
               <button
                 onClick={() => setIsEditorOpen(false)}
-                className="p-1.5 text-[#77727B] hover:text-[#29272B] rounded-xl hover:bg-white"
+                className="p-1.5 text-[#77727B] hover:text-[#29272B] rounded-xl hover:bg-white min-h-[36px] min-w-[36px] flex items-center justify-center"
+                aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEntry} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-              {activeGuidedTopic && (
-                <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E2D9] space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C9879B] flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" /> Day {activeGuidedTopic.dayNumber} Challenge Prompt
+            <form onSubmit={handleSaveEntry} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Optional Prompt Accordion */}
+              {activeChallenge && (
+                <div className="rounded-xl border border-[#E8E2D9] bg-[#FAF7F2]/60 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPromptIdea(!showModalPromptIdea)}
+                    className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-[#77727B] hover:text-[#29272B] text-left transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5 text-[#C9879B]">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Inspiration: Day {currentTopic.dayNumber} prompt (Optional)
                     </span>
-                    <span className="text-2xs text-[#77727B] font-semibold">{activeGuidedTopic.theme}</span>
-                  </div>
-                  <p className="text-xs text-[#29272B] font-serif-title italic leading-relaxed">
-                    "{activeGuidedTopic.prompt}"
-                  </p>
+                    {showModalPromptIdea ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  {showModalPromptIdea && (
+                    <div className="p-3.5 border-t border-[#E8E2D9] space-y-1.5 bg-white text-xs">
+                      <p className="font-bold text-[#29272B]">"{currentTopic.title}"</p>
+                      <p className="text-[#77727B] leading-relaxed">{currentTopic.prompt}</p>
+                      <p className="text-[11px] text-[#C9879B] italic">✦ {currentTopic.affirmation}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -457,20 +509,20 @@ export const JournalPage: React.FC = () => {
                     type="date"
                     value={entryDate}
                     onChange={(e) => setEntryDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D9] text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D9] text-xs min-h-[40px]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#29272B] mb-1">
                     Mood Rating (1-5)
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     {[1, 2, 3, 4, 5].map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setMoodRating(m)}
-                        className={`flex-1 py-1.5 text-xs rounded-xl border font-bold transition-all ${
+                        className={`flex-1 py-2 text-xs rounded-xl border font-bold transition-all min-h-[40px] ${
                           moodRating === m
                             ? 'bg-[#C9879B] text-white border-[#C9879B]'
                             : 'bg-[#FAF7F2] text-[#77727B] border-[#E8E2D9]'
@@ -489,103 +541,103 @@ export const JournalPage: React.FC = () => {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Quiet Morning Breakthrough"
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
+                  placeholder="e.g. Quiet Morning Reflection"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B] min-h-[40px]"
                 />
               </div>
 
               {/* Gratitude 3 Prompts */}
-              <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E2D9] space-y-2">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E2D9] space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C9879B] block">
-                  Three Daily Gratitudes
+                  Three Daily Gratitudes (Optional)
                 </span>
                 <input
                   type="text"
                   value={gratitude1}
                   onChange={(e) => setGratitude1(e.target.value)}
-                  placeholder="1. Something small that brought warmth today..."
-                  className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] text-xs"
+                  placeholder="1. Something that made you smile today..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E2D9] text-xs min-h-[38px]"
                 />
                 <input
                   type="text"
                   value={gratitude2}
                   onChange={(e) => setGratitude2(e.target.value)}
-                  placeholder="2. A person or interaction you appreciated..."
-                  className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] text-xs"
+                  placeholder="2. A person, conversation, or moment you appreciated..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E2D9] text-xs min-h-[38px]"
                 />
                 <input
                   type="text"
                   value={gratitude3}
                   onChange={(e) => setGratitude3(e.target.value)}
-                  placeholder="3. A privilege or quality within yourself..."
-                  className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] text-xs"
+                  placeholder="3. A simple comfort or accomplishment..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E2D9] text-xs min-h-[38px]"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-[#29272B] mb-1">
-                  Today's Top Win / Achievement
+                  Today's Win (Optional)
                 </label>
                 <input
                   type="text"
                   value={dailyWin}
                   onChange={(e) => setDailyWin(e.target.value)}
-                  placeholder="What is one thing you executed cleanly?"
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
+                  placeholder="What is one thing that went well?"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B] min-h-[40px]"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-[#29272B] mb-1">
-                  Reflection Content / Freeform Writing
+                  Thoughts & Reflection
                 </label>
                 <textarea
                   rows={4}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Pour your thoughts, feelings, realizations, and observations here..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
+                  placeholder="Write freely here. You can reflect on your day, your habits, or anything on your mind..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#29272B] mb-1">
-                    Lesson Learned
+                    Lesson Learned (Optional)
                   </label>
                   <input
                     type="text"
                     value={lessonsLearned}
                     onChange={(e) => setLessonsLearned(e.target.value)}
-                    placeholder="Insight to carry forward..."
-                    className="w-full px-3 py-1.5 rounded-xl border border-[#E8E2D9] text-xs"
+                    placeholder="Takeaway to remember..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D9] text-xs min-h-[38px]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#29272B] mb-1">
-                    Tomorrow's Priority
+                    Tomorrow's Priority (Optional)
                   </label>
                   <input
                     type="text"
                     value={tomorrowPriority}
                     onChange={(e) => setTomorrowPriority(e.target.value)}
-                    placeholder="Number one needle-mover tomorrow..."
-                    className="w-full px-3 py-1.5 rounded-xl border border-[#E8E2D9] text-xs"
+                    placeholder="One key focus for tomorrow..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D9] text-xs min-h-[38px]"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-[#E8E2D9] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-[#E8E2D9] flex items-center justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEditorOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-[#77727B]"
+                  className="px-4 py-2.5 rounded-xl text-xs font-medium text-[#77727B] hover:text-[#29272B] min-h-[42px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs"
+                  className="px-5 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs min-h-[42px]"
                 >
                   Save Reflection
                 </button>
