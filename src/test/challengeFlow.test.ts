@@ -3,6 +3,7 @@ import { storageRepository } from '../services/storageRepository';
 import { SEED_TEMPLATES } from '../data/seedTemplates';
 import { Habit } from '../types/database';
 import { getTodayDateString, addDays } from '../utils/dateUtils';
+import { getJournalTopicForDay } from '../data/journalTopics';
 
 describe('Challenge & Habit Persistence Integration Tests', () => {
   beforeEach(() => {
@@ -263,5 +264,54 @@ describe('Challenge & Habit Persistence Integration Tests', () => {
     expect(storageRepository.getHabits(challenge.id)).toHaveLength(0);
     expect(storageRepository.getGoals(challenge.id)).toHaveLength(0);
     expect(storageRepository.getMilestones(challenge.id)).toHaveLength(0);
+  });
+
+  describe('Challenge Day-Based Guided Journal Topics', () => {
+    it('generates rich, curated topics for early, milestone, and final days', () => {
+      // Day 1
+      const day1Topic = getJournalTopicForDay(1, 30, 'Wellness');
+      expect(day1Topic.dayNumber).toBe(1);
+      expect(day1Topic.title).toBe('The Spark of Becoming');
+      expect(day1Topic.prompt.length).toBeGreaterThan(15);
+      expect(day1Topic.affirmation).toBeDefined();
+
+      // Day 7 milestone
+      const day7Topic = getJournalTopicForDay(7, 30, 'Fitness');
+      expect(day7Topic.dayNumber).toBe(7);
+      expect(day7Topic.title).toContain('First Week Checkpoint');
+      expect(day7Topic.prompt.length).toBeGreaterThan(15);
+
+      // Day 21 habit lock-in
+      const day21Topic = getJournalTopicForDay(21, 60, 'Mindset');
+      expect(day21Topic.dayNumber).toBe(21);
+      expect(day21Topic.title).toContain('21-Day Habit Milestone');
+
+      // Day 30 finish line / milestone
+      const day30Topic = getJournalTopicForDay(30, 30, 'Productivity');
+      expect(day30Topic.dayNumber).toBe(30);
+      expect(day30Topic.title).toContain('30-Day Metamorphosis');
+    });
+
+    it('dynamically adapts guided topics for custom challenge durations and stages', () => {
+      // Day 10 of custom 35-day challenge
+      const day10Topic = getJournalTopicForDay(10, 35, 'Custom');
+      expect(day10Topic.dayNumber).toBe(10);
+      expect(day10Topic.title).toBeDefined();
+      expect(day10Topic.prompt.length).toBeGreaterThan(15);
+      expect(day10Topic.affirmation.length).toBeGreaterThan(10);
+
+      // Day 18 of custom 35-day challenge (approx half-way summit)
+      const day18Topic = getJournalTopicForDay(18, 35, 'Custom');
+      expect(day18Topic.dayNumber).toBe(18);
+      expect(day18Topic.title).toBeDefined();
+      expect(day18Topic.prompt.length).toBeGreaterThan(15);
+
+      // Day beyond curated list (e.g. Day 135 of 150)
+      const day135Topic = getJournalTopicForDay(135, 150, 'Mastery');
+      expect(day135Topic.dayNumber).toBe(135);
+      expect(day135Topic.title).toContain('Day 135');
+      expect(day135Topic.prompt.length).toBeGreaterThan(15);
+      expect(day135Topic.affirmation).toBeDefined();
+    });
   });
 });

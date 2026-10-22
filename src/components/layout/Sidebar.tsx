@@ -13,8 +13,6 @@ import {
   Sparkles,
   Settings,
   PlusCircle,
-  Database,
-  Cloud,
   ChevronDown,
   X,
   Trash2,
@@ -32,7 +30,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateModal }) => {
-  const { user, isCloudConnected } = useAuth();
+  const { user } = useAuth();
   const { activeChallenge, challenges, setActiveChallenge } = useChallenge();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -200,33 +198,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
             );
           })}
         </nav>
-
-        {/* Database & Cloud Mode Pill */}
-        <div className="px-4 py-2 border-t border-[#E8E2D9]/70">
-          <div
-            className={cn(
-              "flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs",
-              isCloudConnected
-                ? "bg-[#DCE8DD]/60 text-[#2E5A35] border border-[#BFD4C1]"
-                : "bg-[#F2DDE3]/60 text-[#7C3A4D] border border-[#E2BAC4]"
-            )}
-          >
-            {isCloudConnected ? (
-              <>
-                <Cloud className="w-4 h-4 shrink-0 text-[#2E5A35]" />
-                <span className="truncate font-semibold">Supabase Cloud Connected</span>
-              </>
-            ) : (
-              <>
-                <Database className="w-4 h-4 shrink-0 text-[#C9879B]" />
-                <div className="truncate">
-                  <span className="font-bold">Local Storage Mode</span>
-                  <span className="block text-2xs text-[#77727B]">Isolated & Persistent</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
 
         {/* User Profile Pill */}
         <div className="p-3 border-t border-[#E8E2D9]/70 bg-white/40">

@@ -12,7 +12,7 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   preferred_theme: 'light' | 'dark' | 'system';
-  focus_daily_target_minutes: number;
+  focus_daily_target_minutes?: number;
   created_at: string;
   updated_at: string;
 }

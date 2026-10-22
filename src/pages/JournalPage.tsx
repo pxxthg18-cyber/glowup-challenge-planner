@@ -13,11 +13,14 @@ import {
   Edit,
   X,
   ChevronDown,
+  PenTool,
+  HelpCircle,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
 import { api } from '../services/api';
 import { JournalEntry } from '../types/database';
-import { getTodayDateString, formatDisplayDate } from '../utils/dateUtils';
+import { getTodayDateString, formatDisplayDate, getChallengeProgress } from '../utils/dateUtils';
+import { getJournalTopicForDay, DailyJournalTopic } from '../data/journalTopics';
 
 export const JournalPage: React.FC = () => {
   const { activeChallenge } = useChallenge();
@@ -25,9 +28,30 @@ export const JournalPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedMoodFilter, setSelectedMoodFilter] = useState<number | 'All'>('All');
 
+  // Challenge day progress
+  const progress = activeChallenge
+    ? getChallengeProgress(activeChallenge.start_date, activeChallenge.end_date, activeChallenge.duration_days)
+    : null;
+  const currentChallengeDay = progress?.currentDayNumber || 1;
+  const totalChallengeDays = activeChallenge?.duration_days || 30;
+
+  // Selected topic day
+  const [selectedPromptDay, setSelectedPromptDay] = useState<number>(currentChallengeDay);
+
+  useEffect(() => {
+    if (progress?.currentDayNumber) {
+      setSelectedPromptDay(progress.currentDayNumber);
+    }
+  }, [progress?.currentDayNumber]);
+
+  const currentTopic = useMemo(() => {
+    return getJournalTopicForDay(selectedPromptDay, totalChallengeDays, activeChallenge?.category);
+  }, [selectedPromptDay, totalChallengeDays, activeChallenge?.category]);
+
   // New/Edit Journal state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const [activeGuidedTopic, setActiveGuidedTopic] = useState<DailyJournalTopic | null>(null);
 
   const [entryDate, setEntryDate] = useState<string>(getTodayDateString());
   const [title, setTitle] = useState('');
@@ -68,6 +92,7 @@ export const JournalPage: React.FC = () => {
       setChallengesFaced(entry.challenges_faced || '');
       setLessonsLearned(entry.lessons_learned || '');
       setTomorrowPriority(entry.tomorrow_priorities?.[0] || '');
+      setActiveGuidedTopic(null);
     } else {
       setEditingEntry(null);
       setEntryDate(getTodayDateString());
@@ -81,7 +106,25 @@ export const JournalPage: React.FC = () => {
       setChallengesFaced('');
       setLessonsLearned('');
       setTomorrowPriority('');
+      setActiveGuidedTopic(null);
     }
+    setIsEditorOpen(true);
+  };
+
+  const handleWriteWithTopic = (topic: DailyJournalTopic) => {
+    setEditingEntry(null);
+    setEntryDate(getTodayDateString());
+    setTitle(`Day ${topic.dayNumber}: ${topic.title}`);
+    setContent(`Prompt Reflection:\n${topic.prompt}\n\n`);
+    setMoodRating(5);
+    setGratitude1('');
+    setGratitude2('');
+    setGratitude3('');
+    setDailyWin('');
+    setChallengesFaced('');
+    setLessonsLearned('');
+    setTomorrowPriority('');
+    setActiveGuidedTopic(topic);
     setIsEditorOpen(true);
   };
 
@@ -159,28 +202,85 @@ export const JournalPage: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold font-serif-title text-[#29272B]">
+          <h1 className="text-2xl sm:text-3xl font-bold font-serif-title text-[#29272B]">
             Daily Reflection & Mindfulness Journal
           </h1>
-          <p className="text-xs text-[#77727B]">
-            Document gratitude, celebrate micro-victories, and cultivate self-awareness.
+          <p className="text-sm text-[#77727B] mt-1">
+            Receive personalized prompts for each day of your challenge, record daily gratitude, and track your inner transformation.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleExportData}
-            className="px-3.5 py-2 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-medium text-[#29272B] flex items-center gap-1.5 shadow-xs transition-colors"
+            className="px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-semibold text-[#29272B] flex items-center gap-1.5 shadow-2xs transition-colors"
             title="Export journal entries as JSON"
           >
             <Download className="w-3.5 h-3.5 text-[#77727B]" /> Export
           </button>
           <button
             onClick={() => handleOpenEditor()}
-            className="px-4 py-2 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" /> Write Reflection
           </button>
+        </div>
+      </div>
+
+      {/* 🌟 GUIDED CHALLENGE JOURNAL TOPIC CARD */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-white via-[#FAF7F2] to-[#F2DDE3]/40 border border-[#E8E2D9] p-6 lg:p-7 shadow-xs overflow-hidden">
+        <div className="absolute top-0 right-0 w-44 h-44 bg-[#F2DDE3]/40 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#C9879B] text-white shadow-xs flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 fill-white" />
+                Day {selectedPromptDay} Guided Topic
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white border border-[#E8E2D9] text-[#77727B]">
+                {currentTopic.theme}
+              </span>
+            </div>
+
+            {/* Switch prompt day selector */}
+            <div className="flex items-center gap-1.5 text-xs text-[#77727B]">
+              <span className="font-medium">Topic for:</span>
+              <select
+                value={selectedPromptDay}
+                onChange={(e) => setSelectedPromptDay(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#E8E2D9] text-xs font-semibold text-[#29272B] cursor-pointer shadow-2xs focus:outline-hidden"
+              >
+                {Array.from({ length: totalChallengeDays }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>
+                    Day {d} {d === currentChallengeDay ? '• (Today)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className="text-xl sm:text-2xl font-bold font-serif-title text-[#29272B] tracking-tight">
+              "{currentTopic.title}"
+            </h2>
+            <p className="text-sm sm:text-base text-[#77727B] leading-relaxed max-w-3xl">
+              {currentTopic.prompt}
+            </p>
+          </div>
+
+          <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#E8E2D9]/70">
+            <p className="text-xs sm:text-sm text-[#C9879B] font-serif-title italic flex items-center gap-1.5">
+              <span>✦</span> "{currentTopic.affirmation}"
+            </p>
+
+            <button
+              onClick={() => handleWriteWithTopic(currentTopic)}
+              className="px-4 py-2 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
+            >
+              <PenTool className="w-3.5 h-3.5" /> Write on This Topic
+            </button>
+          </div>
         </div>
       </div>
 
@@ -336,6 +436,20 @@ export const JournalPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEntry} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {activeGuidedTopic && (
+                <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E2D9] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#C9879B] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Day {activeGuidedTopic.dayNumber} Challenge Prompt
+                    </span>
+                    <span className="text-2xs text-[#77727B] font-semibold">{activeGuidedTopic.theme}</span>
+                  </div>
+                  <p className="text-xs text-[#29272B] font-serif-title italic leading-relaxed">
+                    "{activeGuidedTopic.prompt}"
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#29272B] mb-1">Date</label>

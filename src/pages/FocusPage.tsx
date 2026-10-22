@@ -35,9 +35,6 @@ export const FocusPage: React.FC = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [sessions, setSessions] = useState<FocusSession[]>([]);
 
-  // Daily target
-  const dailyTargetMinutes = 60;
-
   // Audio effect / sound synthesizer using Web Audio API (no external asset download dependencies!)
   const playChime = useCallback(() => {
     try {
@@ -169,7 +166,6 @@ export const FocusPage: React.FC = () => {
     (s) => s.session_type === 'focus' && s.completed_at.startsWith(todayStr)
   );
   const totalTodayMinutes = todayFocusSessions.reduce((acc, curr) => acc + curr.duration_minutes, 0);
-  const percentOfTarget = Math.min(100, Math.round((totalTodayMinutes / dailyTargetMinutes) * 100));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 max-w-4xl mx-auto">
@@ -278,31 +274,36 @@ export const FocusPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Daily Target Progress & History */}
+      {/* Focus Activity & History */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Today's Target */}
+        {/* Today's Focus Summary */}
         <div className="bg-white rounded-3xl border border-[#E8E2D9] p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-[#C9879B]" />
-              <h2 className="text-sm font-bold text-[#29272B]">Daily Focus Target</h2>
+              <Clock className="w-4 h-4 text-[#C9879B]" />
+              <h2 className="text-sm font-bold text-[#29272B]">Today's Focus Activity</h2>
             </div>
             <span className="text-xs font-bold text-[#C9879B]">
-              {totalTodayMinutes} / {dailyTargetMinutes} mins
+              {totalTodayMinutes} mins logged
             </span>
           </div>
 
-          <div className="h-2.5 w-full bg-[#FAF7F2] rounded-full overflow-hidden border border-[#E8E2D9]">
-            <div
-              className="h-full bg-[#C9879B] rounded-full transition-all duration-500"
-              style={{ width: `${percentOfTarget}%` }}
-            />
+          <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E2D9] flex items-center justify-around text-center">
+            <div>
+              <p className="text-2xl font-black text-[#29272B]">{totalTodayMinutes}m</p>
+              <p className="text-xs text-[#77727B] mt-0.5">Deep Work Time</p>
+            </div>
+            <div className="h-8 w-px bg-[#E8E2D9]" />
+            <div>
+              <p className="text-2xl font-black text-[#C9879B]">{todayFocusSessions.length}</p>
+              <p className="text-xs text-[#77727B] mt-0.5">Sessions Completed</p>
+            </div>
           </div>
 
-          <p className="text-[11px] text-[#77727B]">
-            {percentOfTarget >= 100
-              ? '🎉 Daily deep focus objective reached! Take restorative breaks.'
-              : `${dailyTargetMinutes - totalTodayMinutes} minutes remaining to reach your daily deep work quota.`}
+          <p className="text-xs text-[#77727B] leading-relaxed">
+            {totalTodayMinutes > 0
+              ? `✨ Productive momentum! You have completed ${todayFocusSessions.length} focused session${todayFocusSessions.length === 1 ? '' : 's'} today.`
+              : 'Start a focus timer whenever you want uninterrupted, distraction-free concentration.'}
           </p>
         </div>
 
