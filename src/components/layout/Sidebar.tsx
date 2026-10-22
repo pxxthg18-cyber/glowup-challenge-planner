@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Compass,
@@ -17,11 +17,13 @@ import {
   Cloud,
   ChevronDown,
   X,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChallenge } from '../../context/ChallengeContext';
 import { getChallengeProgress } from '../../utils/dateUtils';
 import { cn } from '../../utils/cn';
+import { DeleteChallengeModal } from '../challenge/DeleteChallengeModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateModal }) => {
   const { user, isCloudConnected } = useAuth();
   const { activeChallenge, challenges, setActiveChallenge } = useChallenge();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const progress = activeChallenge
     ? getChallengeProgress(activeChallenge.start_date, activeChallenge.end_date, activeChallenge.duration_days)
@@ -71,14 +74,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         {/* Brand header */}
         <div className="p-5 border-b border-[#E8E2D9]/70 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#F2DDE3] flex items-center justify-center text-[#C9879B] shadow-xs">
-              <Sparkles className="w-4 h-4 fill-[#C9879B]" />
+            <div className="w-9 h-9 rounded-xl bg-[#F2DDE3] flex items-center justify-center text-[#C9879B] shadow-xs">
+              <Sparkles className="w-5 h-5 fill-[#C9879B]" />
             </div>
             <div>
-              <span className="font-serif-title text-xl font-bold tracking-tight text-[#29272B]">
+              <span className="font-serif-title text-2xl font-bold tracking-tight text-[#29272B]">
                 GlowUp
               </span>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#C9879B] ml-1.5 px-1.5 py-0.5 rounded-full bg-[#F2DDE3]">
+              <span className="text-xs uppercase tracking-wider font-bold text-[#C9879B] ml-1.5 px-2 py-0.5 rounded-full bg-[#F2DDE3]">
                 Studio
               </span>
             </div>
@@ -93,43 +96,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         </div>
 
         {/* Active Challenge Selector & Mini Progress */}
-        <div className="p-4 mx-3 my-2 rounded-2xl bg-white border border-[#E8E2D9] shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#77727B] mb-1.5">
-            <span className="font-medium uppercase tracking-wider text-[10px]">Active Challenge</span>
+        <div className="p-4 mx-3 my-2.5 rounded-2xl bg-white border border-[#E8E2D9] shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#77727B] mb-2">
+            <span className="font-bold uppercase tracking-wider text-xs">Active Challenge</span>
             <button
               onClick={onOpenCreateModal}
-              className="text-[#C9879B] hover:text-[#B26F84] flex items-center gap-1 font-medium transition-colors"
+              className="text-[#C9879B] hover:text-[#B26F84] flex items-center gap-1 font-semibold transition-colors text-xs"
               title="Create new challenge"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
+              <PlusCircle className="w-4 h-4" />
               <span>New</span>
             </button>
           </div>
 
           {activeChallenge ? (
             <div>
-              <div className="relative group">
-                <select
-                  value={activeChallenge.id}
-                  onChange={(e) => setActiveChallenge(e.target.value)}
-                  className="w-full text-xs font-semibold text-[#29272B] bg-transparent appearance-none cursor-pointer pr-6 py-0.5 truncate focus:outline-hidden"
+              <div className="flex items-center gap-1.5">
+                <div className="relative group flex-1 min-w-0">
+                  <select
+                    value={activeChallenge.id}
+                    onChange={(e) => setActiveChallenge(e.target.value)}
+                    className="w-full text-sm font-semibold text-[#29272B] bg-transparent appearance-none cursor-pointer pr-6 py-1 truncate focus:outline-hidden"
+                  >
+                    {challenges.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title} ({c.duration_days} Days)
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#77727B] absolute right-0 top-1.5 pointer-events-none" />
+                </div>
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="p-1.5 rounded-lg text-[#77727B] hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                  title="Delete this challenge"
                 >
-                  {challenges.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title} ({c.duration_days} Days)
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#77727B] absolute right-0 top-1 pointer-events-none" />
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               {progress && (
                 <div className="mt-2.5">
-                  <div className="flex justify-between items-center text-[11px] mb-1 font-medium">
+                  <div className="flex justify-between items-center text-xs mb-1 font-medium">
                     <span className="text-[#29272B]">{progress.statusLabel}</span>
-                    <span className="text-[#C9879B] font-semibold">{progress.percentComplete}%</span>
+                    <span className="text-[#C9879B] font-bold">{progress.percentComplete}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-[#FAF7F2] rounded-full overflow-hidden border border-[#E8E2D9]/60">
+                  <div className="h-2 w-full bg-[#FAF7F2] rounded-full overflow-hidden border border-[#E8E2D9]/60">
                     <div
                       className="h-full bg-[#C9879B] rounded-full transition-all duration-500"
                       style={{ width: `${progress.percentComplete}%` }}
@@ -140,10 +152,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
             </div>
           ) : (
             <div className="py-1">
-              <p className="text-xs text-[#77727B] mb-2">No active challenge yet.</p>
+              <p className="text-sm text-[#77727B] mb-2">No active challenge yet.</p>
               <button
                 onClick={onOpenCreateModal}
-                className="w-full py-1.5 px-3 text-xs font-medium rounded-xl bg-[#F2DDE3] text-[#29272B] hover:bg-[#C9879B] hover:text-white transition-colors text-center block"
+                className="w-full py-2 px-3 text-sm font-semibold rounded-xl bg-[#F2DDE3] text-[#29272B] hover:bg-[#C9879B] hover:text-white transition-colors text-center block"
               >
                 + Choose from Gallery
               </button>
@@ -162,9 +174,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all group",
+                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all group",
                     isActive
-                      ? "bg-white text-[#29272B] shadow-xs border border-[#E8E2D9] font-semibold"
+                      ? "bg-white text-[#29272B] shadow-xs border border-[#E8E2D9] font-bold"
                       : "text-[#77727B] hover:text-[#29272B] hover:bg-[#F2DDE3]/40",
                     item.highlight && !activeChallenge && "ring-1 ring-[#C9879B]/50 bg-[#F2DDE3]/30"
                   )
@@ -193,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         <div className="px-4 py-2 border-t border-[#E8E2D9]/70">
           <div
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-xl text-[11px]",
+              "flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs",
               isCloudConnected
                 ? "bg-[#DCE8DD]/60 text-[#2E5A35] border border-[#BFD4C1]"
                 : "bg-[#F2DDE3]/60 text-[#7C3A4D] border border-[#E2BAC4]"
@@ -201,15 +213,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
           >
             {isCloudConnected ? (
               <>
-                <Cloud className="w-3.5 h-3.5 shrink-0 text-[#2E5A35]" />
-                <span className="truncate font-medium">Supabase Cloud Connected</span>
+                <Cloud className="w-4 h-4 shrink-0 text-[#2E5A35]" />
+                <span className="truncate font-semibold">Supabase Cloud Connected</span>
               </>
             ) : (
               <>
-                <Database className="w-3.5 h-3.5 shrink-0 text-[#C9879B]" />
+                <Database className="w-4 h-4 shrink-0 text-[#C9879B]" />
                 <div className="truncate">
-                  <span className="font-semibold">Local Storage Mode</span>
-                  <span className="block text-[10px] text-[#77727B]">Persistent & Instant</span>
+                  <span className="font-bold">Local Storage Mode</span>
+                  <span className="block text-2xs text-[#77727B]">Isolated & Persistent</span>
                 </div>
               </>
             )}
@@ -222,15 +234,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
             <img
               src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}
               alt={user?.full_name || 'User'}
-              className="w-8 h-8 rounded-full object-cover border border-[#E8E2D9]"
+              className="w-9 h-9 rounded-full object-cover border border-[#E8E2D9]"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-[#29272B] truncate">{user?.full_name || 'GlowUp Explorer'}</p>
-              <p className="text-[10px] text-[#77727B] truncate">{user?.email}</p>
+              <p className="text-sm font-bold text-[#29272B] truncate">{user?.full_name || 'GlowUp Explorer'}</p>
+              <p className="text-xs text-[#77727B] truncate">{user?.email}</p>
             </div>
           </div>
         </div>
       </aside>
+
+      {/* Delete Challenge Modal triggered from sidebar */}
+      <DeleteChallengeModal
+        challenge={activeChallenge}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+      />
     </>
   );
 };

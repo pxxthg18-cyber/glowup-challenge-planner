@@ -15,6 +15,7 @@ import {
   Edit,
   ArrowUpRight,
   Award,
+  Trash2,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
 import { api } from '../services/api';
@@ -26,6 +27,7 @@ import {
   parseDate,
 } from '../utils/dateUtils';
 import { ChallengeSettingsModal } from '../components/challenge/ChallengeSettingsModal';
+import { DeleteChallengeModal } from '../components/challenge/DeleteChallengeModal';
 import confetti from 'canvas-confetti';
 
 export const DashboardPage: React.FC = () => {
@@ -38,6 +40,7 @@ export const DashboardPage: React.FC = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Quick inline add task state
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
@@ -184,47 +187,57 @@ export const DashboardPage: React.FC = () => {
       {/* 1. ACTIVE CHALLENGE HERO CARD */}
       <div className="relative rounded-3xl bg-white border border-[#E8E2D9] p-6 lg:p-8 overflow-hidden shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#F2DDE3] text-[#7C3A4D]">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#F2DDE3] text-[#7C3A4D]">
                 {activeChallenge.category}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#DCE8DD] text-[#2E5A35]">
+              <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#DCE8DD] text-[#2E5A35]">
                 {progress.statusLabel}
               </span>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="text-[11px] text-[#77727B] hover:text-[#29272B] inline-flex items-center gap-1 ml-2 font-medium"
-              >
-                <Edit className="w-3 h-3" /> Edit Dates
-              </button>
+              <div className="flex items-center gap-2 ml-1">
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="text-xs text-[#29272B] hover:bg-[#FAF7F2] bg-white border border-[#E8E2D9] px-3 py-1 rounded-xl inline-flex items-center gap-1.5 font-semibold transition-colors shadow-2xs"
+                  title="Edit challenge settings, start and end dates"
+                >
+                  <Edit className="w-3.5 h-3.5 text-[#C9879B]" /> Edit Dates
+                </button>
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border border-red-200 px-3 py-1 rounded-xl inline-flex items-center gap-1.5 font-semibold transition-colors shadow-2xs"
+                  title="Delete this challenge"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-500" /> Delete Challenge
+                </button>
+              </div>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold font-serif-title text-[#29272B] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-title text-[#29272B] tracking-tight">
               {activeChallenge.title}
             </h1>
-            <p className="text-xs text-[#77727B] max-w-xl">
+            <p className="text-sm text-[#77727B] max-w-xl leading-relaxed">
               {activeChallenge.tagline || activeChallenge.description}
             </p>
           </div>
 
           {/* Day Counter Matrix */}
-          <div className="grid grid-cols-3 gap-3 bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8E2D9] text-center min-w-[280px]">
+          <div className="grid grid-cols-3 gap-3 bg-[#FAF7F2] p-4 sm:p-5 rounded-2xl border border-[#E8E2D9] text-center min-w-[300px]">
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#77727B] block">Current Day</span>
-              <span className="text-xl sm:text-2xl font-black text-[#29272B]">
+              <span className="text-xs uppercase font-bold text-[#77727B] block mb-0.5">Current Day</span>
+              <span className="text-2xl sm:text-3xl font-black text-[#29272B]">
                 Day {progress.currentDayNumber}
               </span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#77727B] block">Remaining</span>
-              <span className="text-xl sm:text-2xl font-black text-[#C9879B]">
+              <span className="text-xs uppercase font-bold text-[#77727B] block mb-0.5">Remaining</span>
+              <span className="text-2xl sm:text-3xl font-black text-[#C9879B]">
                 {progress.remainingDays}d
               </span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#77727B] block">Total Duration</span>
-              <span className="text-xl sm:text-2xl font-black text-[#29272B]">
+              <span className="text-xs uppercase font-bold text-[#77727B] block mb-0.5">Total Duration</span>
+              <span className="text-2xl sm:text-3xl font-black text-[#29272B]">
                 {progress.totalDays}d
               </span>
             </div>
@@ -233,7 +246,7 @@ export const DashboardPage: React.FC = () => {
 
         {/* Global Progress Bar */}
         <div className="mt-6 pt-5 border-t border-[#E8E2D9]/70">
-          <div className="flex items-center justify-between text-xs font-semibold mb-2">
+          <div className="flex items-center justify-between text-sm font-semibold mb-2">
             <span className="text-[#29272B]">
               Overall Transformation Progress
             </span>
@@ -241,13 +254,13 @@ export const DashboardPage: React.FC = () => {
               {progress.percentComplete}% Complete
             </span>
           </div>
-          <div className="h-2 w-full bg-[#FAF7F2] rounded-full overflow-hidden border border-[#E8E2D9]">
+          <div className="h-2.5 w-full bg-[#FAF7F2] rounded-full overflow-hidden border border-[#E8E2D9]">
             <div
               className="h-full bg-gradient-to-r from-[#C9879B] to-[#B26F84] rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress.percentComplete}%` }}
             />
           </div>
-          <div className="flex justify-between items-center text-[10px] text-[#77727B] mt-1.5">
+          <div className="flex justify-between items-center text-xs text-[#77727B] mt-2 font-medium">
             <span>Started {formatDisplayDate(activeChallenge.start_date)}</span>
             <span>Target Finish {formatDisplayDate(activeChallenge.end_date)}</span>
           </div>
@@ -546,6 +559,13 @@ export const DashboardPage: React.FC = () => {
           setIsSettingsOpen(false);
           loadDashboardData();
         }}
+      />
+
+      {/* Delete Challenge Modal */}
+      <DeleteChallengeModal
+        challenge={activeChallenge}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
       />
     </div>
   );

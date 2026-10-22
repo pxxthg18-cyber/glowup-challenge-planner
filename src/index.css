@@ -9,10 +9,18 @@
     --text-muted: #77727B;
   }
 
+  html {
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: var(--bg-cream);
     color: var(--text-dark);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
   }
 
   /* Custom scrollbar for Notion-like clean look */

@@ -22,6 +22,7 @@ import {
 
 const STORAGE_KEYS = {
   USER: 'glowup_user',
+  ACCOUNTS: 'glowup_accounts',
   TEMPLATES: 'glowup_templates',
   CHALLENGES: 'glowup_challenges',
   ACTIVE_CHALLENGE_ID: 'glowup_active_challenge_id',
@@ -53,7 +54,85 @@ function setStored<T>(key: string, value: T): void {
   }
 }
 
+/**
+ * Returns a user-partitioned storage key so that each user's
+ * challenges, tasks, habits, logs, journals, and goals are strictly isolated.
+ */
+function getUserKey(baseKey: string, explicitUserId?: string): string {
+  const current = storageRepository.getCurrentUser();
+  const userId = explicitUserId || current?.id || 'demo-user-001';
+  return `${baseKey}_${userId}`;
+}
+
+/**
+ * Helper to retrieve user-partitioned storage with fallback to baseKey
+ * for demo-user-001 to preserve existing test state and demo seeds.
+ */
+function getUserStored<T>(baseKey: string, defaultValue: T, explicitUserId?: string): T {
+  const userKey = getUserKey(baseKey, explicitUserId);
+  const raw = localStorage.getItem(userKey);
+  if (raw !== null) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  // Backward compatibility fallback for demo-user-001
+  const current = storageRepository.getCurrentUser();
+  const userId = explicitUserId || current?.id || 'demo-user-001';
+  if (userId === 'demo-user-001') {
+    const legacyRaw = localStorage.getItem(baseKey);
+    if (legacyRaw !== null) {
+      try {
+        const val = JSON.parse(legacyRaw);
+        // Migrate to user-scoped key
+        localStorage.setItem(userKey, legacyRaw);
+        return val;
+      } catch {
+        return defaultValue;
+      }
+    }
+  }
+
+  return defaultValue;
+}
+
+function setUserStored<T>(baseKey: string, value: T, explicitUserId?: string): void {
+  const userKey = getUserKey(baseKey, explicitUserId);
+  setStored(userKey, value);
+}
+
 export const storageRepository = {
+  // Account registry for multiple local users
+  getAccounts(): Record<string, Profile> {
+    return getStored<Record<string, Profile>>(STORAGE_KEYS.ACCOUNTS, {
+      'demo@glowup.local': {
+        id: 'demo-user-001',
+        email: 'demo@glowup.local',
+        full_name: 'Elena Rostova',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+        bio: 'Becoming the most radiant, disciplined version of myself.',
+        preferred_theme: 'light',
+        focus_daily_target_minutes: 60,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
+  },
+
+  saveAccount(profile: Profile): void {
+    const accounts = this.getAccounts();
+    accounts[profile.email.trim().toLowerCase()] = profile;
+    setStored(STORAGE_KEYS.ACCOUNTS, accounts);
+  },
+
+  findAccountByEmail(email: string): Profile | null {
+    const accounts = this.getAccounts();
+    return accounts[email.trim().toLowerCase()] || null;
+  },
+
   // Profiles / Auth
   getCurrentUser(): Profile | null {
     return getStored<Profile | null>(STORAGE_KEYS.USER, {
@@ -71,6 +150,9 @@ export const storageRepository = {
 
   setCurrentUser(user: Profile | null) {
     setStored(STORAGE_KEYS.USER, user);
+    if (user) {
+      this.saveAccount(user);
+    }
   },
 
   // Templates
@@ -97,22 +179,27 @@ export const storageRepository = {
     return template;
   },
 
-  // Challenges
-  getChallenges(): Challenge[] {
-    return getStored<Challenge[]>(STORAGE_KEYS.CHALLENGES, []);
+  // Challenges (Partitioned per User)
+  getChallenges(userId?: string): Challenge[] {
+    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const list = getUserStored<Challenge[]>(STORAGE_KEYS.CHALLENGES, [], targetUserId);
+    return list.filter(c => c.user_id === targetUserId);
   },
 
-  getActiveChallengeId(): string | null {
-    return getStored<string | null>(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, null);
+  getActiveChallengeId(userId?: string): string | null {
+    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    return getUserStored<string | null>(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, null, targetUserId);
   },
 
-  setActiveChallengeId(id: string | null) {
-    setStored(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, id);
+  setActiveChallengeId(id: string | null, userId?: string) {
+    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, id, targetUserId);
   },
 
-  getActiveChallenge(): Challenge | null {
-    const challenges = this.getChallenges();
-    const activeId = this.getActiveChallengeId();
+  getActiveChallenge(userId?: string): Challenge | null {
+    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const challenges = this.getChallenges(targetUserId);
+    const activeId = this.getActiveChallengeId(targetUserId);
     if (activeId) {
       const found = challenges.find(c => c.id === activeId);
       if (found) return found;
@@ -120,7 +207,7 @@ export const storageRepository = {
     // Fallback to first non-archived challenge
     const active = challenges.find(c => c.status === 'active') || challenges[0] || null;
     if (active) {
-      this.setActiveChallengeId(active.id);
+      this.setActiveChallengeId(active.id, targetUserId);
     }
     return active;
   },
@@ -166,10 +253,10 @@ export const storageRepository = {
       updated_at: new Date().toISOString(),
     };
 
-    const challenges = this.getChallenges();
+    const challenges = this.getChallenges(userId);
     challenges.unshift(newChallenge);
-    setStored(STORAGE_KEYS.CHALLENGES, challenges);
-    this.setActiveChallengeId(challengeId);
+    setUserStored(STORAGE_KEYS.CHALLENGES, challenges, userId);
+    this.setActiveChallengeId(challengeId, userId);
 
     // 1. Generate Milestones for this duration
     const milestoneDefs = generateDynamicMilestones(startDate, data.duration_days);
@@ -185,11 +272,11 @@ export const storageRepository = {
       reward_note: m.rewardNote,
       created_at: new Date().toISOString(),
     }));
-    const currentMilestones = getStored<Milestone[]>(STORAGE_KEYS.MILESTONES, []);
-    setStored(STORAGE_KEYS.MILESTONES, [...milestones, ...currentMilestones]);
+    const currentMilestones = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
+    setUserStored(STORAGE_KEYS.MILESTONES, [...milestones, ...currentMilestones], userId);
 
     // 2. Clone goals from template or custom inputs
-    const currentGoals = getStored<Goal[]>(STORAGE_KEYS.GOALS, []);
+    const currentGoals = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     const newGoals: Goal[] = [];
 
     if (data.custom_goals && data.custom_goals.length > 0) {
@@ -229,10 +316,10 @@ export const storageRepository = {
         });
       }
     }
-    setStored(STORAGE_KEYS.GOALS, [...newGoals, ...currentGoals]);
+    setUserStored(STORAGE_KEYS.GOALS, [...newGoals, ...currentGoals], userId);
 
     // 3. Clone habits from template or custom inputs
-    const currentHabits = getStored<Habit[]>(STORAGE_KEYS.HABITS, []);
+    const currentHabits = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     const newHabits: Habit[] = [];
 
     if (data.custom_habits && data.custom_habits.length > 0) {
@@ -276,10 +363,10 @@ export const storageRepository = {
         });
       }
     }
-    setStored(STORAGE_KEYS.HABITS, [...newHabits, ...currentHabits]);
+    setUserStored(STORAGE_KEYS.HABITS, [...newHabits, ...currentHabits], userId);
 
     // 4. Clone tasks from template or custom inputs
-    const currentTasks = getStored<Task[]>(STORAGE_KEYS.TASKS, []);
+    const currentTasks = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     const newTasks: Task[] = [];
 
     if (data.custom_tasks && data.custom_tasks.length > 0) {
@@ -327,13 +414,15 @@ export const storageRepository = {
         });
       }
     }
-    setStored(STORAGE_KEYS.TASKS, [...newTasks, ...currentTasks]);
+    setUserStored(STORAGE_KEYS.TASKS, [...newTasks, ...currentTasks], userId);
 
     return newChallenge;
   },
 
   updateChallenge(id: string, updates: Partial<Challenge>): Challenge {
-    const challenges = this.getChallenges();
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const challenges = this.getChallenges(userId);
     const index = challenges.findIndex(c => c.id === id);
     if (index === -1) throw new Error('Challenge not found');
 
@@ -343,7 +432,7 @@ export const storageRepository = {
       updated_at: new Date().toISOString(),
     };
 
-    // If duration or dates changed, re-verify milestones
+    // If duration or dates changed, re-verify end date
     if (updates.duration_days || updates.start_date) {
       const startDate = updated.start_date;
       const duration = updated.duration_days;
@@ -351,106 +440,132 @@ export const storageRepository = {
     }
 
     challenges[index] = updated;
-    setStored(STORAGE_KEYS.CHALLENGES, challenges);
+    setUserStored(STORAGE_KEYS.CHALLENGES, challenges, userId);
     return updated;
   },
 
   deleteChallenge(id: string): void {
-    const challenges = this.getChallenges().filter(c => c.id !== id);
-    setStored(STORAGE_KEYS.CHALLENGES, challenges);
-    if (this.getActiveChallengeId() === id) {
-      this.setActiveChallengeId(challenges[0]?.id || null);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const challenges = this.getChallenges(userId).filter(c => c.id !== id);
+    setUserStored(STORAGE_KEYS.CHALLENGES, challenges, userId);
+    if (this.getActiveChallengeId(userId) === id) {
+      this.setActiveChallengeId(challenges[0]?.id || null, userId);
     }
-    // Clean up associated items
-    setStored(STORAGE_KEYS.GOALS, getStored<Goal[]>(STORAGE_KEYS.GOALS, []).filter(g => g.challenge_id !== id));
-    setStored(STORAGE_KEYS.HABITS, getStored<Habit[]>(STORAGE_KEYS.HABITS, []).filter(h => h.challenge_id !== id));
-    setStored(STORAGE_KEYS.TASKS, getStored<Task[]>(STORAGE_KEYS.TASKS, []).filter(t => t.challenge_id !== id));
-    setStored(STORAGE_KEYS.MILESTONES, getStored<Milestone[]>(STORAGE_KEYS.MILESTONES, []).filter(m => m.challenge_id !== id));
+    // Clean up associated items for this user
+    setUserStored(STORAGE_KEYS.GOALS, getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId).filter(g => g.challenge_id !== id), userId);
+    setUserStored(STORAGE_KEYS.HABITS, getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId).filter(h => h.challenge_id !== id), userId);
+    setUserStored(STORAGE_KEYS.TASKS, getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId).filter(t => t.challenge_id !== id), userId);
+    setUserStored(STORAGE_KEYS.MILESTONES, getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId).filter(m => m.challenge_id !== id), userId);
   },
 
   // Milestones
   getMilestones(challengeId?: string): Milestone[] {
-    const all = getStored<Milestone[]>(STORAGE_KEYS.MILESTONES, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
     return challengeId ? all.filter(m => m.challenge_id === challengeId) : all;
   },
 
   toggleMilestone(id: string, isAchieved: boolean): Milestone {
-    const all = getStored<Milestone[]>(STORAGE_KEYS.MILESTONES, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
     const idx = all.findIndex(m => m.id === id);
     if (idx === -1) throw new Error('Milestone not found');
     all[idx].is_achieved = isAchieved;
     all[idx].achieved_at = isAchieved ? new Date().toISOString() : null;
-    setStored(STORAGE_KEYS.MILESTONES, all);
+    setUserStored(STORAGE_KEYS.MILESTONES, all, userId);
     return all[idx];
   },
 
   // Goals
   getGoals(challengeId?: string): Goal[] {
-    const all = getStored<Goal[]>(STORAGE_KEYS.GOALS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     return challengeId ? all.filter(g => g.challenge_id === challengeId) : all;
   },
 
   createGoal(goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>): Goal {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newGoal: Goal = {
       ...goal,
       id: 'g-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      user_id: userId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const all = getStored<Goal[]>(STORAGE_KEYS.GOALS, []);
+    const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     all.push(newGoal);
-    setStored(STORAGE_KEYS.GOALS, all);
+    setUserStored(STORAGE_KEYS.GOALS, all, userId);
     return newGoal;
   },
 
   updateGoal(id: string, updates: Partial<Goal>): Goal {
-    const all = getStored<Goal[]>(STORAGE_KEYS.GOALS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     const idx = all.findIndex(g => g.id === id);
     if (idx === -1) throw new Error('Goal not found');
     all[idx] = { ...all[idx], ...updates, updated_at: new Date().toISOString() };
-    setStored(STORAGE_KEYS.GOALS, all);
+    setUserStored(STORAGE_KEYS.GOALS, all, userId);
     return all[idx];
   },
 
   deleteGoal(id: string): void {
-    setStored(STORAGE_KEYS.GOALS, getStored<Goal[]>(STORAGE_KEYS.GOALS, []).filter(g => g.id !== id));
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.GOALS, getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId).filter(g => g.id !== id), userId);
   },
 
   // Habits
   getHabits(challengeId?: string): Habit[] {
-    const all = getStored<Habit[]>(STORAGE_KEYS.HABITS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     return challengeId ? all.filter(h => h.challenge_id === challengeId && !h.is_archived) : all.filter(h => !h.is_archived);
   },
 
   createHabit(habit: Omit<Habit, 'id' | 'created_at' | 'updated_at'>): Habit {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newHabit: Habit = {
       ...habit,
       id: 'h-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      user_id: userId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const all = getStored<Habit[]>(STORAGE_KEYS.HABITS, []);
+    const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     all.push(newHabit);
-    setStored(STORAGE_KEYS.HABITS, all);
+    setUserStored(STORAGE_KEYS.HABITS, all, userId);
     return newHabit;
   },
 
   updateHabit(id: string, updates: Partial<Habit>): Habit {
-    const all = getStored<Habit[]>(STORAGE_KEYS.HABITS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     const idx = all.findIndex(h => h.id === id);
     if (idx === -1) throw new Error('Habit not found');
     all[idx] = { ...all[idx], ...updates, updated_at: new Date().toISOString() };
-    setStored(STORAGE_KEYS.HABITS, all);
+    setUserStored(STORAGE_KEYS.HABITS, all, userId);
     return all[idx];
   },
 
   deleteHabit(id: string): void {
-    setStored(STORAGE_KEYS.HABITS, getStored<Habit[]>(STORAGE_KEYS.HABITS, []).filter(h => h.id !== id));
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.HABITS, getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId).filter(h => h.id !== id), userId);
   },
 
   // Habit Logs & Streaks
   getHabitLogs(habitId?: string, date?: string): HabitLog[] {
-    let logs = getStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    let logs = getUserStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, [], userId);
     if (habitId) logs = logs.filter(l => l.habit_id === habitId);
     if (date) logs = logs.filter(l => l.date === date);
     return logs;
@@ -459,21 +574,20 @@ export const storageRepository = {
   toggleHabitLog(habitId: string, date: string, notes?: string): { completed: boolean; log: HabitLog | null } {
     const user = this.getCurrentUser();
     const userId = user?.id || 'demo-user-001';
-    const all = getStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, []);
+    const all = getUserStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, [], userId);
     const existingIndex = all.findIndex(l => l.habit_id === habitId && l.date === date);
 
     if (existingIndex !== -1) {
       const wasCompleted = all[existingIndex].completed;
       if (wasCompleted) {
-        // Toggle to uncompleted (remove or set false)
         all.splice(existingIndex, 1);
-        setStored(STORAGE_KEYS.HABIT_LOGS, all);
+        setUserStored(STORAGE_KEYS.HABIT_LOGS, all, userId);
         return { completed: false, log: null };
       } else {
         all[existingIndex].completed = true;
         all[existingIndex].completed_at = new Date().toISOString();
         if (notes) all[existingIndex].notes = notes;
-        setStored(STORAGE_KEYS.HABIT_LOGS, all);
+        setUserStored(STORAGE_KEYS.HABIT_LOGS, all, userId);
         return { completed: true, log: all[existingIndex] };
       }
     } else {
@@ -487,15 +601,11 @@ export const storageRepository = {
         completed_at: new Date().toISOString(),
       };
       all.push(newLog);
-      setStored(STORAGE_KEYS.HABIT_LOGS, all);
+      setUserStored(STORAGE_KEYS.HABIT_LOGS, all, userId);
       return { completed: true, log: newLog };
     }
   },
 
-  /**
-   * Calculates habit streaks based strictly on scheduled opportunities.
-   * Unscheduled days do NOT count as missed habits!
-   */
   calculateHabitStreak(habit: Habit): { currentStreak: number; longestStreak: number; totalCompleted: number } {
     const allLogs = this.getHabitLogs(habit.id).filter(l => l.completed);
     const completedDates = new Set(allLogs.map(l => l.date));
@@ -508,28 +618,24 @@ export const storageRepository = {
     const scheduledDaysSet = new Set(habit.scheduled_days);
     const today = getTodayDateString();
 
-    // Walk back 180 days to compute streaks
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
 
-    // Check backwards from today for current streak
     let checkDate = today;
     let checkedDaysCount = 0;
     let broken = false;
 
     while (checkedDaysCount < 180) {
       const d = parseDate(checkDate);
-      const dayOfWeek = d.getDay(); // 0 is Sunday
+      const dayOfWeek = d.getDay();
 
-      // Only check if scheduled
       if (scheduledDaysSet.has(dayOfWeek)) {
         if (completedDates.has(checkDate)) {
           if (!broken) currentStreak++;
           tempStreak++;
           if (tempStreak > longestStreak) longestStreak = tempStreak;
         } else {
-          // If today is not completed yet, don't break streak immediately if yesterday was completed
           if (checkDate === today) {
             // Still alive for today
           } else {
@@ -549,25 +655,32 @@ export const storageRepository = {
 
   // Tasks
   getTasks(challengeId?: string): Task[] {
-    const all = getStored<Task[]>(STORAGE_KEYS.TASKS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     return challengeId ? all.filter(t => t.challenge_id === challengeId) : all;
   },
 
   createTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Task {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newTask: Task = {
       ...task,
       id: 't-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      user_id: userId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const all = getStored<Task[]>(STORAGE_KEYS.TASKS, []);
+    const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     all.push(newTask);
-    setStored(STORAGE_KEYS.TASKS, all);
+    setUserStored(STORAGE_KEYS.TASKS, all, userId);
     return newTask;
   },
 
   updateTask(id: string, updates: Partial<Task>): Task {
-    const all = getStored<Task[]>(STORAGE_KEYS.TASKS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     const idx = all.findIndex(t => t.id === id);
     if (idx === -1) throw new Error('Task not found');
 
@@ -584,72 +697,89 @@ export const storageRepository = {
     }
 
     all[idx] = updated;
-    setStored(STORAGE_KEYS.TASKS, all);
+    setUserStored(STORAGE_KEYS.TASKS, all, userId);
     return updated;
   },
 
   deleteTask(id: string): void {
-    setStored(STORAGE_KEYS.TASKS, getStored<Task[]>(STORAGE_KEYS.TASKS, []).filter(t => t.id !== id));
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.TASKS, getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId).filter(t => t.id !== id), userId);
   },
 
   // Journal
   getJournalEntries(challengeId?: string): JournalEntry[] {
-    const all = getStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     const list = challengeId ? all.filter(j => !j.challenge_id || j.challenge_id === challengeId) : all;
-    // Sort newest first
     return list.sort((a, b) => b.entry_date.localeCompare(a.entry_date));
   },
 
   createJournalEntry(entry: Omit<JournalEntry, 'id' | 'created_at' | 'updated_at'>): JournalEntry {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newEntry: JournalEntry = {
       ...entry,
       id: 'j-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      user_id: userId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const all = getStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []);
+    const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     all.unshift(newEntry);
-    setStored(STORAGE_KEYS.JOURNAL, all);
+    setUserStored(STORAGE_KEYS.JOURNAL, all, userId);
     return newEntry;
   },
 
   updateJournalEntry(id: string, updates: Partial<JournalEntry>): JournalEntry {
-    const all = getStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     const idx = all.findIndex(j => j.id === id);
     if (idx === -1) throw new Error('Journal entry not found');
     all[idx] = { ...all[idx], ...updates, updated_at: new Date().toISOString() };
-    setStored(STORAGE_KEYS.JOURNAL, all);
+    setUserStored(STORAGE_KEYS.JOURNAL, all, userId);
     return all[idx];
   },
 
   deleteJournalEntry(id: string): void {
-    setStored(STORAGE_KEYS.JOURNAL, getStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []).filter(j => j.id !== id));
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.JOURNAL, getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId).filter(j => j.id !== id), userId);
   },
 
   // Focus Sessions
   getFocusSessions(challengeId?: string): FocusSession[] {
-    const all = getStored<FocusSession[]>(STORAGE_KEYS.FOCUS, []);
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const all = getUserStored<FocusSession[]>(STORAGE_KEYS.FOCUS, [], userId);
     return challengeId ? all.filter(s => !s.challenge_id || s.challenge_id === challengeId) : all;
   },
 
   createFocusSession(session: Omit<FocusSession, 'id' | 'created_at'>): FocusSession {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newSession: FocusSession = {
       ...session,
       id: 'fs-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      user_id: userId,
       created_at: new Date().toISOString(),
     };
-    const all = getStored<FocusSession[]>(STORAGE_KEYS.FOCUS, []);
+    const all = getUserStored<FocusSession[]>(STORAGE_KEYS.FOCUS, [], userId);
     all.unshift(newSession);
-    setStored(STORAGE_KEYS.FOCUS, all);
+    setUserStored(STORAGE_KEYS.FOCUS, all, userId);
     return newSession;
   },
 
   // Vision Board
   getVisionBoard(challengeId?: string): VisionBoardItem[] {
-    const all = getStored<VisionBoardItem[]>(STORAGE_KEYS.VISION, [
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    const defaultVision: VisionBoardItem[] = [
       {
         id: 'vb-1',
-        user_id: 'demo-user-001',
+        user_id: userId,
         image_url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=800&auto=format&fit=crop',
         caption: 'Calm mind, unshakeable confidence & peace.',
         category: 'Mindset',
@@ -658,7 +788,7 @@ export const storageRepository = {
       },
       {
         id: 'vb-2',
-        user_id: 'demo-user-001',
+        user_id: userId,
         image_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=800&auto=format&fit=crop',
         caption: 'Radiant physical energy, strength & flexibility.',
         category: 'Physical',
@@ -667,30 +797,36 @@ export const storageRepository = {
       },
       {
         id: 'vb-3',
-        user_id: 'demo-user-001',
+        user_id: userId,
         image_url: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?q=80&w=800&auto=format&fit=crop',
         caption: 'Minimalist aesthetic, organized life, effortless elegance.',
         category: 'Aesthetic',
         display_order: 3,
         created_at: new Date().toISOString(),
       },
-    ]);
+    ];
+    const all = getUserStored<VisionBoardItem[]>(STORAGE_KEYS.VISION, defaultVision, userId);
     return challengeId ? all.filter(v => !v.challenge_id || v.challenge_id === challengeId) : all;
   },
 
   createVisionBoardItem(item: Omit<VisionBoardItem, 'id' | 'created_at'>): VisionBoardItem {
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
     const newItem: VisionBoardItem = {
       ...item,
       id: 'vb-' + Date.now(),
+      user_id: userId,
       created_at: new Date().toISOString(),
     };
     const all = this.getVisionBoard();
     all.push(newItem);
-    setStored(STORAGE_KEYS.VISION, all);
+    setUserStored(STORAGE_KEYS.VISION, all, userId);
     return newItem;
   },
 
   deleteVisionBoardItem(id: string): void {
-    setStored(STORAGE_KEYS.VISION, this.getVisionBoard().filter(v => v.id !== id));
+    const user = this.getCurrentUser();
+    const userId = user?.id || 'demo-user-001';
+    setUserStored(STORAGE_KEYS.VISION, this.getVisionBoard().filter(v => v.id !== id), userId);
   },
 };

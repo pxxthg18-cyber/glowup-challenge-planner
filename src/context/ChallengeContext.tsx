@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
+import { useAuth } from './AuthContext';
 import { Challenge } from '../types/database';
 
 interface ChallengeContextType {
@@ -17,6 +18,7 @@ interface ChallengeContextType {
 const ChallengeContext = createContext<ChallengeContextType | undefined>(undefined);
 
 export const ChallengeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activeChallenge, setActiveChallengeState] = useState<Challenge | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -36,7 +38,7 @@ export const ChallengeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     refreshChallenges();
-  }, [refreshChallenges]);
+  }, [user?.id, refreshChallenges]);
 
   const setActiveChallenge = async (id: string) => {
     await api.setActiveChallenge(id);

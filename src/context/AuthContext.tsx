@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { api } from '../services/api';
+import { storageRepository } from '../services/storageRepository';
 import { Profile } from '../types/database';
 
 interface AuthContextType {
@@ -52,19 +53,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // Local mode sign in
-        const profile: Profile = {
-          id: 'user-' + Date.now(),
-          email,
-          full_name: email.split('@')[0],
-          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
-          bio: 'Embracing my transformative glow-up journey.',
-          preferred_theme: 'light',
-          focus_daily_target_minutes: 60,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        await api.updateProfile(profile);
+        // Local mode multi-user sign in with unique isolation per email
+        const normalized = email.trim().toLowerCase();
+        const existing = storageRepository.findAccountByEmail(normalized);
+
+        let profile: Profile;
+        if (existing) {
+          profile = existing;
+        } else {
+          const userId = 'user_' + normalized.replace(/[^a-z0-9]/g, '_');
+          profile = {
+            id: userId,
+            email: normalized,
+            full_name: normalized.split('@')[0],
+            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+            bio: 'Embracing my transformative glow-up journey.',
+            preferred_theme: 'light',
+            focus_daily_target_minutes: 60,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          storageRepository.saveAccount(profile);
+        }
+
+        storageRepository.setCurrentUser(profile);
         setUser(profile);
       }
     } finally {
@@ -85,10 +97,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         if (error) throw error;
       } else {
+        const normalized = email.trim().toLowerCase();
+        const userId = 'user_' + normalized.replace(/[^a-z0-9]/g, '_');
         const profile: Profile = {
-          id: 'user-' + Date.now(),
-          email,
-          full_name: fullName || email.split('@')[0],
+          id: userId,
+          email: normalized,
+          full_name: fullName || normalized.split('@')[0],
           avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
           bio: 'Ready to glow up.',
           preferred_theme: 'light',
@@ -96,7 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-        await api.updateProfile(profile);
+        storageRepository.saveAccount(profile);
+        storageRepository.setCurrentUser(profile);
         setUser(profile);
       }
     } finally {
@@ -110,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
       }
+      storageRepository.setCurrentUser(null);
       setUser(null);
     } finally {
       setIsLoading(false);
