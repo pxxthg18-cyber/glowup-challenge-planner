@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Compass,
@@ -202,11 +202,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         {/* User Profile Pill */}
         <div className="p-3 border-t border-[#E8E2D9]/70 bg-white/40">
           <div className="flex items-center gap-3 p-2 rounded-xl">
-            <img
-              src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}
-              alt={user?.full_name || 'User'}
-              className="w-9 h-9 rounded-full object-cover border border-[#E8E2D9]"
-            />
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.full_name || 'User'}
+                className="w-9 h-9 rounded-full object-cover border border-[#E8E2D9]"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[#F2DDE3] text-[#C9879B] border border-[#E8E2D9] flex items-center justify-center font-bold text-sm select-none shrink-0 shadow-2xs">
+                {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-[#29272B] truncate">{user?.full_name || 'GlowUp Explorer'}</p>
               <p className="text-xs text-[#77727B] truncate">{user?.email}</p>

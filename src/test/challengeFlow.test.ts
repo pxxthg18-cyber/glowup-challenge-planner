@@ -82,7 +82,7 @@ describe('Challenge & Habit Persistence Integration Tests', () => {
     // Create a daily habit
     const testHabit: Habit = {
       id: 'h-streak-test',
-      user_id: 'demo-user-001',
+      user_id: testUser.id,
       title: 'Daily Hydration',
       category: 'Health',
       frequency_type: 'daily',

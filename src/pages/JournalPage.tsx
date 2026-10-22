@@ -19,12 +19,14 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { JournalEntry } from '../types/database';
 import { getTodayDateString, formatDisplayDate, getChallengeProgress } from '../utils/dateUtils';
 import { getJournalTopicForDay, DailyJournalTopic } from '../data/journalTopics';
 
 export const JournalPage: React.FC = () => {
+  const { user } = useAuth();
   const { activeChallenge } = useChallenge();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [search, setSearch] = useState('');
@@ -159,7 +161,7 @@ export const JournalPage: React.FC = () => {
       });
     } else {
       await api.createJournalEntry({
-        user_id: activeChallenge?.user_id || 'demo-user-001',
+        user_id: user?.id || activeChallenge?.user_id || '',
         challenge_id: activeChallenge?.id || null,
         entry_date: entryDate,
         title: title.trim() || undefined,

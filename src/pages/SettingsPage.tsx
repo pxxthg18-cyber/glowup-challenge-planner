@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   User,
   Download,
@@ -42,7 +42,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleExportAll = () => {
-    const userId = user?.id || 'demo-user-001';
+    const userId = user?.id || '';
     const backupData = {
       exportDate: new Date().toISOString(),
       user,
@@ -105,7 +105,7 @@ export const SettingsPage: React.FC = () => {
               <input
                 type="email"
                 disabled
-                value={user?.email || 'demo@glowup.local'}
+                value={user?.email || ''}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] bg-[#FAF7F2] text-[#77727B] text-sm"
               />
             </div>
@@ -195,7 +195,7 @@ export const SettingsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-[#29272B]">Signed in as</p>
-            <p className="text-[11px] text-[#77727B]">{user?.email || 'demo@glowup.local'}</p>
+            <p className="text-[11px] text-[#77727B]">{user?.email || 'Authenticated Member'}</p>
           </div>
           <button
             onClick={handleSignOut}

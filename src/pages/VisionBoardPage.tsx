@@ -13,11 +13,13 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { VisionBoardItem } from '../types/database';
 import { VisionLightboxModal } from '../components/vision/VisionLightboxModal';
 
 export const VisionBoardPage: React.FC = () => {
+  const { user } = useAuth();
   const { activeChallenge } = useChallenge();
   const [items, setItems] = useState<VisionBoardItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -73,7 +75,7 @@ export const VisionBoardPage: React.FC = () => {
     }
 
     await api.createVisionBoardItem({
-      user_id: activeChallenge?.user_id || 'demo-user-001',
+      user_id: user?.id || activeChallenge?.user_id || '',
       challenge_id: activeChallenge?.id || null,
       image_url: imageUrl.trim(),
       caption: caption.trim() || undefined,

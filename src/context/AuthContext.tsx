@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { api } from '../services/api';
 import { storageRepository } from '../services/storageRepository';
@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: userId,
             email: normalized,
             full_name: normalized.split('@')[0],
-            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+            avatar_url: null,
             bio: 'Embracing my transformative glow-up journey.',
             preferred_theme: 'light',
             focus_daily_target_minutes: 60,
@@ -121,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: userId,
           email: normalized,
           full_name: fullName || normalized.split('@')[0],
-          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+          avatar_url: null,
           bio: 'Ready to glow up.',
           preferred_theme: 'light',
           focus_daily_target_minutes: 60,

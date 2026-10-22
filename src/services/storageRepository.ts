@@ -1,4 +1,4 @@
-import {
+﻿import {
   Template,
   Challenge,
   Goal,
@@ -427,7 +427,7 @@ export const storageRepository = {
   // Milestones
   getMilestones(challengeId?: string): Milestone[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
     return challengeId ? all.filter(m => m.challenge_id === challengeId) : all;
@@ -449,7 +449,7 @@ export const storageRepository = {
   // Goals
   getGoals(challengeId?: string): Goal[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     return challengeId ? all.filter(g => g.challenge_id === challengeId) : all;
@@ -494,7 +494,7 @@ export const storageRepository = {
   // Habits
   getHabits(challengeId?: string): Habit[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     return challengeId ? all.filter(h => h.challenge_id === challengeId && !h.is_archived) : all.filter(h => !h.is_archived);
@@ -539,7 +539,7 @@ export const storageRepository = {
   // Habit Logs & Streaks
   getHabitLogs(habitId?: string, date?: string): HabitLog[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     let logs = getUserStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, [], userId);
     if (habitId) logs = logs.filter(l => l.habit_id === habitId);
@@ -633,7 +633,7 @@ export const storageRepository = {
   // Tasks
   getTasks(challengeId?: string): Task[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     return challengeId ? all.filter(t => t.challenge_id === challengeId) : all;
@@ -691,7 +691,7 @@ export const storageRepository = {
   // Journal
   getJournalEntries(challengeId?: string): JournalEntry[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     const list = challengeId ? all.filter(j => !j.challenge_id || j.challenge_id === challengeId) : all;
@@ -737,7 +737,7 @@ export const storageRepository = {
   // Focus Sessions
   getFocusSessions(challengeId?: string): FocusSession[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
     const all = getUserStored<FocusSession[]>(STORAGE_KEYS.FOCUS, [], userId);
     return challengeId ? all.filter(s => !s.challenge_id || s.challenge_id === challengeId) : all;
@@ -762,38 +762,10 @@ export const storageRepository = {
   // Vision Board
   getVisionBoard(challengeId?: string): VisionBoardItem[] {
     const user = this.getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) return [];
     const userId = user.id;
-    const defaultVision: VisionBoardItem[] = [
-      {
-        id: 'vb-1',
-        user_id: userId,
-        image_url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=800&auto=format&fit=crop',
-        caption: 'Calm mind, unshakeable confidence & peace.',
-        category: 'Mindset',
-        display_order: 1,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'vb-2',
-        user_id: userId,
-        image_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=800&auto=format&fit=crop',
-        caption: 'Radiant physical energy, strength & flexibility.',
-        category: 'Physical',
-        display_order: 2,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'vb-3',
-        user_id: userId,
-        image_url: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?q=80&w=800&auto=format&fit=crop',
-        caption: 'Minimalist aesthetic, organized life, effortless elegance.',
-        category: 'Aesthetic',
-        display_order: 3,
-        created_at: new Date().toISOString(),
-      },
-    ];
-    const all = getUserStored<VisionBoardItem[]>(STORAGE_KEYS.VISION, defaultVision, userId);
+    // Clean empty board by default — no mixed demo data
+    const all = getUserStored<VisionBoardItem[]>(STORAGE_KEYS.VISION, [], userId);
     return challengeId ? all.filter(v => !v.challenge_id || v.challenge_id === challengeId) : all;
   },
 
