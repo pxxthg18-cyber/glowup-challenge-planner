@@ -81,7 +81,7 @@ export const App: React.FC = () => {
               </Route>
 
               {/* Catch-all redirect */}
-              <Route path="*" element={<Navigate to="/templates" replace />} />
+              <Route path="*" element={<Navigate to="/auth" replace />} />
             </Routes>
           </BrowserRouter>
         </ChallengeProvider>

@@ -6,8 +6,22 @@ import { getTodayDateString, addDays } from '../utils/dateUtils';
 import { getJournalTopicForDay } from '../data/journalTopics';
 
 describe('Challenge & Habit Persistence Integration Tests', () => {
+  const testUser = {
+    id: 'user_test_at_example_com',
+    email: 'test@example.com',
+    full_name: 'Test User',
+    avatar_url: null,
+    bio: 'Test account',
+    preferred_theme: 'light' as const,
+    focus_daily_target_minutes: 60,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
   beforeEach(() => {
     localStorage.clear();
+    // Every test runs as an authenticated user — no demo-user auto-login
+    storageRepository.setCurrentUser(testUser);
   });
 
   it('provides all 13 curated system templates', () => {

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, User } from 'lucide-react';
+import { Sparkles, ArrowRight, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const AuthPage: React.FC = () => {
-  const { signIn, signUp, isCloudConnected } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -25,23 +25,10 @@ export const AuthPage: React.FC = () => {
       } else {
         await signUp(email, password, fullName);
       }
-      // Rule 5: After user signs in, show the Challenge Template Gallery as primary starting screen!
+      // After sign-in/sign-up, go to Challenge Template Gallery
       navigate('/templates');
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInstantDemo = async () => {
-    setLoading(true);
-    try {
-      await signIn('elena.rostova@glowup.local');
-      // Rule 5: Show Template Gallery first
-      navigate('/templates');
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -57,7 +44,7 @@ export const AuthPage: React.FC = () => {
           GlowUp
         </h1>
         <p className="mt-1 text-xs text-[#77727B]">
-          Personalized Glow-Up Challenge Planner & Notion-Style Life Architecture
+          Personalized Glow-Up Challenge Planner &amp; Notion-Style Life Architecture
         </p>
       </div>
 
@@ -114,7 +101,7 @@ export const AuthPage: React.FC = () => {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Elena Rostova"
+                    placeholder="Your name"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E8E2D9] text-xs focus:outline-hidden focus:border-[#C9879B]"
                   />
                 </div>
@@ -140,13 +127,12 @@ export const AuthPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#29272B] mb-1">
-                Password
+                Password {!import.meta.env.VITE_SUPABASE_URL && <span className="text-[#77727B] font-normal">(any password works in local mode)</span>}
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-[#77727B] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -160,23 +146,10 @@ export const AuthPage: React.FC = () => {
               disabled={loading}
               className="w-full py-2.5 px-4 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-2 transition-all"
             >
-              <span>{mode === 'signin' ? 'Sign In to GlowUp' : 'Create Your Account'}</span>
+              <span>{loading ? 'Please wait…' : mode === 'signin' ? 'Sign In to GlowUp' : 'Create Your Account'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
-
-          {/* Quick Demo Access Button */}
-          <div className="pt-2 border-t border-[#E8E2D9]">
-            <button
-              type="button"
-              onClick={handleInstantDemo}
-              disabled={loading}
-              className="w-full py-2 px-4 rounded-xl bg-[#FAF7F2] hover:bg-[#F2DDE3] border border-[#E8E2D9] text-[#29272B] text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#C9879B]" />
-              <span>Instant Test / Demo Access</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

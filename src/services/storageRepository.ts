@@ -57,16 +57,18 @@ function setStored<T>(key: string, value: T): void {
 /**
  * Returns a user-partitioned storage key so that each user's
  * challenges, tasks, habits, logs, journals, and goals are strictly isolated.
+ * Returns null if no user is authenticated and no explicit userId is provided.
  */
 function getUserKey(baseKey: string, explicitUserId?: string): string {
   const current = storageRepository.getCurrentUser();
-  const userId = explicitUserId || current?.id || 'demo-user-001';
-  return `${baseKey}_${userId}`;
+  const userId = explicitUserId || current?.id;
+  // If no user is authenticated, use 'anonymous' — this key never matches a real user's data
+  return `${baseKey}_${userId || 'anonymous'}`;
 }
 
 /**
- * Helper to retrieve user-partitioned storage with fallback to baseKey
- * for demo-user-001 to preserve existing test state and demo seeds.
+ * Helper to retrieve user-partitioned storage.
+ * No legacy demo-user-001 fallback — clean per-user isolation only.
  */
 function getUserStored<T>(baseKey: string, defaultValue: T, explicitUserId?: string): T {
   const userKey = getUserKey(baseKey, explicitUserId);
@@ -78,24 +80,6 @@ function getUserStored<T>(baseKey: string, defaultValue: T, explicitUserId?: str
       return defaultValue;
     }
   }
-
-  // Backward compatibility fallback for demo-user-001
-  const current = storageRepository.getCurrentUser();
-  const userId = explicitUserId || current?.id || 'demo-user-001';
-  if (userId === 'demo-user-001') {
-    const legacyRaw = localStorage.getItem(baseKey);
-    if (legacyRaw !== null) {
-      try {
-        const val = JSON.parse(legacyRaw);
-        // Migrate to user-scoped key
-        localStorage.setItem(userKey, legacyRaw);
-        return val;
-      } catch {
-        return defaultValue;
-      }
-    }
-  }
-
   return defaultValue;
 }
 
@@ -107,19 +91,7 @@ function setUserStored<T>(baseKey: string, value: T, explicitUserId?: string): v
 export const storageRepository = {
   // Account registry for multiple local users
   getAccounts(): Record<string, Profile> {
-    return getStored<Record<string, Profile>>(STORAGE_KEYS.ACCOUNTS, {
-      'demo@glowup.local': {
-        id: 'demo-user-001',
-        email: 'demo@glowup.local',
-        full_name: 'Elena Rostova',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
-        bio: 'Becoming the most radiant, disciplined version of myself.',
-        preferred_theme: 'light',
-        focus_daily_target_minutes: 60,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    });
+    return getStored<Record<string, Profile>>(STORAGE_KEYS.ACCOUNTS, {}); // No pre-seeded accounts
   },
 
   saveAccount(profile: Profile): void {
@@ -135,17 +107,7 @@ export const storageRepository = {
 
   // Profiles / Auth
   getCurrentUser(): Profile | null {
-    return getStored<Profile | null>(STORAGE_KEYS.USER, {
-      id: 'demo-user-001',
-      email: 'demo@glowup.local',
-      full_name: 'Elena Rostova',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
-      bio: 'Becoming the most radiant, disciplined version of myself.',
-      preferred_theme: 'light',
-      focus_daily_target_minutes: 60,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    return getStored<Profile | null>(STORAGE_KEYS.USER, null); // null = not logged in
   },
 
   setCurrentUser(user: Profile | null) {
@@ -181,23 +143,23 @@ export const storageRepository = {
 
   // Challenges (Partitioned per User)
   getChallenges(userId?: string): Challenge[] {
-    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const targetUserId = userId || this.getCurrentUser()?.id;
     const list = getUserStored<Challenge[]>(STORAGE_KEYS.CHALLENGES, [], targetUserId);
     return list.filter(c => c.user_id === targetUserId);
   },
 
   getActiveChallengeId(userId?: string): string | null {
-    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const targetUserId = userId || this.getCurrentUser()?.id;
     return getUserStored<string | null>(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, null, targetUserId);
   },
 
   setActiveChallengeId(id: string | null, userId?: string) {
-    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const targetUserId = userId || this.getCurrentUser()?.id;
     setUserStored(STORAGE_KEYS.ACTIVE_CHALLENGE_ID, id, targetUserId);
   },
 
   getActiveChallenge(userId?: string): Challenge | null {
-    const targetUserId = userId || this.getCurrentUser()?.id || 'demo-user-001';
+    const targetUserId = userId || this.getCurrentUser()?.id;
     const challenges = this.getChallenges(targetUserId);
     const activeId = this.getActiveChallengeId(targetUserId);
     if (activeId) {
@@ -229,7 +191,8 @@ export const storageRepository = {
     custom_tasks?: Array<{ title: string; day_number: number; category: string; priority: any; estimated_minutes: number }>;
   }): Challenge {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const challengeId = 'ch-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const startDate = data.start_date || getTodayDateString();
     const endDate = data.end_date || calculateEndDate(startDate, data.duration_days);
@@ -421,7 +384,8 @@ export const storageRepository = {
 
   updateChallenge(id: string, updates: Partial<Challenge>): Challenge {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const challenges = this.getChallenges(userId);
     const index = challenges.findIndex(c => c.id === id);
     if (index === -1) throw new Error('Challenge not found');
@@ -446,7 +410,8 @@ export const storageRepository = {
 
   deleteChallenge(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const challenges = this.getChallenges(userId).filter(c => c.id !== id);
     setUserStored(STORAGE_KEYS.CHALLENGES, challenges, userId);
     if (this.getActiveChallengeId(userId) === id) {
@@ -462,14 +427,16 @@ export const storageRepository = {
   // Milestones
   getMilestones(challengeId?: string): Milestone[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
     return challengeId ? all.filter(m => m.challenge_id === challengeId) : all;
   },
 
   toggleMilestone(id: string, isAchieved: boolean): Milestone {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Milestone[]>(STORAGE_KEYS.MILESTONES, [], userId);
     const idx = all.findIndex(m => m.id === id);
     if (idx === -1) throw new Error('Milestone not found');
@@ -482,14 +449,16 @@ export const storageRepository = {
   // Goals
   getGoals(challengeId?: string): Goal[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     return challengeId ? all.filter(g => g.challenge_id === challengeId) : all;
   },
 
   createGoal(goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>): Goal {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newGoal: Goal = {
       ...goal,
       id: 'g-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -505,7 +474,8 @@ export const storageRepository = {
 
   updateGoal(id: string, updates: Partial<Goal>): Goal {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId);
     const idx = all.findIndex(g => g.id === id);
     if (idx === -1) throw new Error('Goal not found');
@@ -516,21 +486,24 @@ export const storageRepository = {
 
   deleteGoal(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     setUserStored(STORAGE_KEYS.GOALS, getUserStored<Goal[]>(STORAGE_KEYS.GOALS, [], userId).filter(g => g.id !== id), userId);
   },
 
   // Habits
   getHabits(challengeId?: string): Habit[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     return challengeId ? all.filter(h => h.challenge_id === challengeId && !h.is_archived) : all.filter(h => !h.is_archived);
   },
 
   createHabit(habit: Omit<Habit, 'id' | 'created_at' | 'updated_at'>): Habit {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newHabit: Habit = {
       ...habit,
       id: 'h-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -546,7 +519,8 @@ export const storageRepository = {
 
   updateHabit(id: string, updates: Partial<Habit>): Habit {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId);
     const idx = all.findIndex(h => h.id === id);
     if (idx === -1) throw new Error('Habit not found');
@@ -557,14 +531,16 @@ export const storageRepository = {
 
   deleteHabit(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     setUserStored(STORAGE_KEYS.HABITS, getUserStored<Habit[]>(STORAGE_KEYS.HABITS, [], userId).filter(h => h.id !== id), userId);
   },
 
   // Habit Logs & Streaks
   getHabitLogs(habitId?: string, date?: string): HabitLog[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     let logs = getUserStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, [], userId);
     if (habitId) logs = logs.filter(l => l.habit_id === habitId);
     if (date) logs = logs.filter(l => l.date === date);
@@ -573,7 +549,8 @@ export const storageRepository = {
 
   toggleHabitLog(habitId: string, date: string, notes?: string): { completed: boolean; log: HabitLog | null } {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<HabitLog[]>(STORAGE_KEYS.HABIT_LOGS, [], userId);
     const existingIndex = all.findIndex(l => l.habit_id === habitId && l.date === date);
 
@@ -656,14 +633,16 @@ export const storageRepository = {
   // Tasks
   getTasks(challengeId?: string): Task[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     return challengeId ? all.filter(t => t.challenge_id === challengeId) : all;
   },
 
   createTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Task {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newTask: Task = {
       ...task,
       id: 't-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -679,7 +658,8 @@ export const storageRepository = {
 
   updateTask(id: string, updates: Partial<Task>): Task {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId);
     const idx = all.findIndex(t => t.id === id);
     if (idx === -1) throw new Error('Task not found');
@@ -703,14 +683,16 @@ export const storageRepository = {
 
   deleteTask(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     setUserStored(STORAGE_KEYS.TASKS, getUserStored<Task[]>(STORAGE_KEYS.TASKS, [], userId).filter(t => t.id !== id), userId);
   },
 
   // Journal
   getJournalEntries(challengeId?: string): JournalEntry[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     const list = challengeId ? all.filter(j => !j.challenge_id || j.challenge_id === challengeId) : all;
     return list.sort((a, b) => b.entry_date.localeCompare(a.entry_date));
@@ -718,7 +700,8 @@ export const storageRepository = {
 
   createJournalEntry(entry: Omit<JournalEntry, 'id' | 'created_at' | 'updated_at'>): JournalEntry {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newEntry: JournalEntry = {
       ...entry,
       id: 'j-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -734,7 +717,8 @@ export const storageRepository = {
 
   updateJournalEntry(id: string, updates: Partial<JournalEntry>): JournalEntry {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId);
     const idx = all.findIndex(j => j.id === id);
     if (idx === -1) throw new Error('Journal entry not found');
@@ -745,21 +729,24 @@ export const storageRepository = {
 
   deleteJournalEntry(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     setUserStored(STORAGE_KEYS.JOURNAL, getUserStored<JournalEntry[]>(STORAGE_KEYS.JOURNAL, [], userId).filter(j => j.id !== id), userId);
   },
 
   // Focus Sessions
   getFocusSessions(challengeId?: string): FocusSession[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const all = getUserStored<FocusSession[]>(STORAGE_KEYS.FOCUS, [], userId);
     return challengeId ? all.filter(s => !s.challenge_id || s.challenge_id === challengeId) : all;
   },
 
   createFocusSession(session: Omit<FocusSession, 'id' | 'created_at'>): FocusSession {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newSession: FocusSession = {
       ...session,
       id: 'fs-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -775,7 +762,8 @@ export const storageRepository = {
   // Vision Board
   getVisionBoard(challengeId?: string): VisionBoardItem[] {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const defaultVision: VisionBoardItem[] = [
       {
         id: 'vb-1',
@@ -811,7 +799,8 @@ export const storageRepository = {
 
   createVisionBoardItem(item: Omit<VisionBoardItem, 'id' | 'created_at'>): VisionBoardItem {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     const newItem: VisionBoardItem = {
       ...item,
       id: 'vb-' + Date.now(),
@@ -826,7 +815,8 @@ export const storageRepository = {
 
   deleteVisionBoardItem(id: string): void {
     const user = this.getCurrentUser();
-    const userId = user?.id || 'demo-user-001';
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
     setUserStored(STORAGE_KEYS.VISION, this.getVisionBoard().filter(v => v.id !== id), userId);
   },
 };

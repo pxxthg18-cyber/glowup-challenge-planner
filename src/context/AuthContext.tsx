@@ -34,6 +34,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // One-time migration: wipe any stale auto-seeded demo session from older builds
+    // so browsers that previously loaded the app don't inherit Elena Rostova's account.
+    const rawUser = localStorage.getItem('glowup_user');
+    if (rawUser) {
+      try {
+        const parsed = JSON.parse(rawUser);
+        if (
+          parsed?.id === 'demo-user-001' ||
+          parsed?.email === 'demo@glowup.local' ||
+          parsed?.email === 'elena.rostova@glowup.local'
+        ) {
+          localStorage.removeItem('glowup_user');
+        }
+      } catch {
+        localStorage.removeItem('glowup_user');
+      }
+    }
+
     fetchProfile();
 
     if (isSupabaseConfigured && supabase) {

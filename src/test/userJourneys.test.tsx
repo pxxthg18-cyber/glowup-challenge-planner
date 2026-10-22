@@ -28,8 +28,22 @@ const renderWithProviders = (ui: React.ReactElement) => {
 };
 
 describe('User Journeys & UI Verification', () => {
+  const testUser = {
+    id: 'user_testjourney_at_example_com',
+    email: 'testjourney@example.com',
+    full_name: 'Journey Tester',
+    avatar_url: null,
+    bio: null,
+    preferred_theme: 'light' as const,
+    focus_daily_target_minutes: 60,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
   beforeEach(() => {
     localStorage.clear();
+    // Simulate authenticated user for all UI tests
+    storageRepository.setCurrentUser(testUser);
   });
 
   it('renders the Challenge Template Gallery with curated templates and search', async () => {
@@ -89,7 +103,7 @@ describe('User Journeys & UI Verification', () => {
   });
 
   it('renders Dashboard with active challenge, allows checking tasks & habits directly', async () => {
-    const today = storageRepository.getCurrentUser() ? new Date().toISOString().split('T')[0] : '2026-10-22';
+    const today = new Date().toISOString().split('T')[0];
 
     // Seed an active challenge first
     const challenge = storageRepository.createChallenge({
