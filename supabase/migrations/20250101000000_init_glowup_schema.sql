@@ -248,19 +248,81 @@ ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vision_board_items ENABLE ROW LEVEL SECURITY;
 
 -- Templates: System templates readable by all; custom templates readable/editable by creator
-CREATE POLICY "Templates viewable by everyone" ON public.templates
-    FOR SELECT USING (is_system_template = true OR auth.uid() = creator_id);
-CREATE POLICY "Custom templates insertable by creator" ON public.templates
-    FOR INSERT WITH CHECK (auth.uid() = creator_id);
-CREATE POLICY "Custom templates updatable by creator" ON public.templates
-    FOR UPDATE USING (auth.uid() = creator_id);
 
-CREATE POLICY "Template goals viewable with template" ON public.template_goals
-    FOR SELECT USING (true);
-CREATE POLICY "Template habits viewable with template" ON public.template_habits
-    FOR SELECT USING (true);
-CREATE POLICY "Template tasks viewable with template" ON public.template_tasks
-    FOR SELECT USING (true);
+-- Templates: public system templates are readable by everyone;
+-- private custom templates are readable only by their creator.
+CREATE POLICY "Templates viewable by everyone"
+ON public.templates
+FOR SELECT
+USING (is_system_template = true OR auth.uid() = creator_id);
+
+-- Users may create custom templates, never system templates.
+CREATE POLICY "Custom templates insertable by creator"
+ON public.templates
+FOR INSERT
+WITH CHECK (
+    auth.uid() = creator_id
+    AND is_system_template = false
+);
+
+CREATE POLICY "Custom templates updatable by creator"
+ON public.templates
+FOR UPDATE
+USING (
+    auth.uid() = creator_id
+    AND is_system_template = false
+)
+WITH CHECK (
+    auth.uid() = creator_id
+    AND is_system_template = false
+);
+
+-- Child records are visible only when their parent template is visible.
+CREATE POLICY "Template goals viewable with template"
+ON public.template_goals
+FOR SELECT
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.templates t
+        WHERE t.id = template_id
+          AND (
+              t.is_system_template = true
+              OR t.creator_id = auth.uid()
+          )
+    )
+);
+
+CREATE POLICY "Template habits viewable with template"
+ON public.template_habits
+FOR SELECT
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.templates t
+        WHERE t.id = template_id
+          AND (
+              t.is_system_template = true
+              OR t.creator_id = auth.uid()
+          )
+    )
+);
+
+CREATE POLICY "Template tasks viewable with template"
+ON public.template_tasks
+FOR SELECT
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.templates t
+        WHERE t.id = template_id
+          AND (
+              t.is_system_template = true
+              OR t.creator_id = auth.uid()
+          )
+    )
+);
+
 
 -- User-owned tables: strict isolation per auth.uid()
 CREATE POLICY "User profiles self access" ON public.profiles
