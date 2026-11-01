@@ -610,134 +610,138 @@ export const WeeklyPlannerView: React.FC = () => {
         </div>
 
         {/* 7 Days Grid / Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3.5">
-          {weekDays.map((day) => {
-            const isExpanded = expandedDays[day.key];
-            const tasksForDay = dailyTasksMap[day.key] || [];
-            const completedCount = tasksForDay.filter((t) => t.completed).length;
+        <div className="overflow-x-auto pb-3 -mx-1 px-1 scrollbar-thin">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3.5 min-w-[280px] xl:min-w-[1050px]">
+            {weekDays.map((day) => {
+              const isExpanded = expandedDays[day.key];
+              const tasksForDay = dailyTasksMap[day.key] || [];
+              const completedCount = tasksForDay.filter((t) => t.completed).length;
 
-            return (
-              <div
-                key={day.key}
-                className={`rounded-2xl border flex flex-col justify-between transition-all ${
-                  day.isToday
-                    ? 'border-[#C9879B] bg-[#FFFBF8] shadow-xs'
-                    : 'border-[#E8E2D9] bg-[#FAF7F2]/40'
-                }`}
-              >
-                {/* Day Header */}
+              return (
                 <div
-                  onClick={() =>
-                    setExpandedDays((prev) => ({ ...prev, [day.key]: !prev[day.key] }))
-                  }
-                  className="p-3 cursor-pointer flex items-center justify-between border-b border-[#E8E2D9]/70 hover:bg-[#F2DDE3]/20 transition-colors rounded-t-2xl"
+                  key={day.key}
+                  className={`rounded-2xl border flex flex-col justify-between transition-all min-w-0 ${
+                    day.isToday
+                      ? 'border-[#C9879B] bg-[#FFFBF8] shadow-xs'
+                      : 'border-[#E8E2D9] bg-[#FAF7F2]/40'
+                  }`}
                 >
-                  <div>
+                  {/* Day Header */}
+                  <div
+                    onClick={() =>
+                      setExpandedDays((prev) => ({ ...prev, [day.key]: !prev[day.key] }))
+                    }
+                    className="p-3 cursor-pointer flex items-center justify-between border-b border-[#E8E2D9]/70 hover:bg-[#F2DDE3]/20 transition-colors rounded-t-2xl"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-[#29272B]">{day.dayName}</span>
+                        {day.isToday && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#C9879B] text-white">
+                            Today
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-[#77727B]">{day.displayDate}</span>
+                    </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-[#29272B]">{day.dayName}</span>
-                      {day.isToday && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#C9879B] text-white">
-                          Today
+                      {tasksForDay.length > 0 && (
+                        <span className="text-[10px] font-semibold text-[#77727B]">
+                          {completedCount}/{tasksForDay.length}
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] text-[#77727B]">{day.displayDate}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {tasksForDay.length > 0 && (
-                      <span className="text-[10px] font-semibold text-[#77727B]">
-                        {completedCount}/{tasksForDay.length}
-                      </span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Day Body & Tasks */}
-                {isExpanded && (
-                  <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
-                    <div className="space-y-1.5">
-                      {tasksForDay.length === 0 ? (
-                        <p className="text-[11px] text-[#A09BA5] italic py-2 text-center">
-                          No tasks scheduled
-                        </p>
-                      ) : (
-                        tasksForDay.map((task) => (
-                          <div
-                            key={task.id}
-                            className={`group flex items-start gap-2 p-1.5 rounded-xl border transition-colors ${
-                              task.completed
-                                ? 'bg-white/50 border-transparent text-[#77727B]'
-                                : 'bg-white border-[#E8E2D9] text-[#29272B]'
-                            }`}
-                          >
-                            <button
-                              onClick={() => handleToggleDailyTask(day.key, task.id)}
-                              className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-colors ${
+                  {/* Day Body & Tasks */}
+                  {isExpanded && (
+                    <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1.5">
+                        {tasksForDay.length === 0 ? (
+                          <p className="text-[11px] text-[#A09BA5] italic py-2 text-center">
+                            No tasks scheduled
+                          </p>
+                        ) : (
+                          tasksForDay.map((task) => (
+                            <div
+                              key={task.id}
+                              className={`group relative flex items-start gap-2 p-2 rounded-xl border transition-all ${
                                 task.completed
-                                  ? 'bg-[#3B6E47] border-[#3B6E47] text-white'
-                                  : 'border-[#77727B] hover:border-[#3B6E47]'
+                                  ? 'bg-white/60 border-transparent text-[#77727B]'
+                                  : 'bg-white border-[#E8E2D9] text-[#29272B] hover:border-[#C9879B]/50 hover:shadow-2xs'
                               }`}
                             >
-                              {task.completed && <Check className="w-2.5 h-2.5" />}
-                            </button>
-
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-[11px] leading-tight break-words ${
-                                  task.completed ? 'line-through text-[#77727B]' : ''
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDailyTask(day.key, task.id)}
+                                className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-colors ${
+                                  task.completed
+                                    ? 'bg-[#3B6E47] border-[#3B6E47] text-white'
+                                    : 'border-[#77727B] hover:border-[#3B6E47]'
                                 }`}
                               >
-                                {task.title}
-                              </p>
-                            </div>
-
-                            {/* Reschedule Dropdown / Delete */}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <select
-                                value={day.key}
-                                onChange={(e) =>
-                                  handleMoveTaskDay(day.key, task.id, e.target.value as DayKey)
-                                }
-                                title="Move to another day"
-                                className="text-[9px] bg-transparent text-[#77727B] border-none p-0 cursor-pointer"
-                              >
-                                {DAY_KEYS.map((k) => (
-                                  <option key={k} value={k}>
-                                    {DAY_LABELS[k].substring(0, 3)}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={() => handleDeleteDailyTask(day.key, task.id)}
-                                className="text-[#77727B] hover:text-red-500"
-                                title="Delete task"
-                              >
-                                <Trash2 className="w-3 h-3" />
+                                {task.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                               </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
 
-                    {/* Quick Add Task for Day */}
-                    <div className="mt-2 pt-2 border-t border-[#E8E2D9]/70 flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={dayTaskInputs[day.key] || ''}
-                        onChange={(e) =>
-                          setDayTaskInputs((prev) => ({ ...prev, [day.key]: e.target.value }))
-                        }
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddDayTask(day.key)}
-                        placeholder="+ Add task..."
-                        className="w-full px-2 py-1 rounded-lg border border-[#E8E2D9] text-[11px] text-[#29272B] placeholder:text-[#A09BA5] bg-white focus:outline-hidden focus:border-[#C9879B]"
-                      />
+                              <div className="flex-1 min-w-0 pr-1">
+                                <p
+                                  className={`text-xs leading-normal break-words ${
+                                    task.completed ? 'line-through text-[#A09BA5]' : 'text-[#29272B]'
+                                  }`}
+                                >
+                                  {task.title}
+                                </p>
+                              </div>
+
+                              {/* Reschedule Dropdown / Delete (floats on hover so it never squeezes task text) */}
+                              <div className="absolute right-1 top-1 hidden group-hover:flex items-center gap-1 bg-white/95 px-1 py-0.5 rounded-md border border-[#E8E2D9] shadow-xs z-10">
+                                <select
+                                  value={day.key}
+                                  onChange={(e) =>
+                                    handleMoveTaskDay(day.key, task.id, e.target.value as DayKey)
+                                  }
+                                  title="Move to another day"
+                                  className="text-[9px] bg-transparent text-[#77727B] border-none p-0 cursor-pointer font-medium hover:text-[#29272B]"
+                                >
+                                  {DAY_KEYS.map((k) => (
+                                    <option key={k} value={k}>
+                                      {DAY_LABELS[k].substring(0, 3)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDailyTask(day.key, task.id)}
+                                  className="text-[#77727B] hover:text-red-500 transition-colors p-0.5"
+                                  title="Delete task"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Quick Add Task for Day */}
+                      <div className="mt-2 pt-2 border-t border-[#E8E2D9]/70 flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={dayTaskInputs[day.key] || ''}
+                          onChange={(e) =>
+                            setDayTaskInputs((prev) => ({ ...prev, [day.key]: e.target.value }))
+                          }
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddDayTask(day.key)}
+                          placeholder="+ Add task..."
+                          className="w-full px-2 py-1.5 rounded-lg border border-[#E8E2D9] text-xs text-[#29272B] placeholder:text-[#A09BA5] bg-white focus:outline-hidden focus:border-[#C9879B]"
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
