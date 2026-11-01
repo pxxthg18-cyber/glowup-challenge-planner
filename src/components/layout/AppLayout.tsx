@@ -11,8 +11,8 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] flex">
-      {/* Desktop sidebar (hidden on mobile) */}
+    <div className="min-h-screen lg:h-screen bg-[#FAF7F2] flex lg:overflow-hidden">
+      {/* Desktop sidebar (fixed/sticky on desktop, hidden on mobile) */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -20,7 +20,7 @@ export const AppLayout: React.FC = () => {
       />
 
       {/* Main content viewport */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:h-screen lg:overflow-hidden">
         <Header
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onOpenCreateTask={() => navigate('/tasks')}
@@ -28,8 +28,8 @@ export const AppLayout: React.FC = () => {
           onOpenCreateJournal={() => navigate('/journal')}
         />
 
-        {/* Page content — extra bottom padding on mobile to clear bottom nav */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">
+        {/* Page content — scrolls independently while sidebar and header stay fixed */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8 lg:overflow-y-auto">
           <Outlet />
         </main>
       </div>

@@ -97,9 +97,11 @@ describe('User Journeys & UI Verification', () => {
     fireEvent.click(launchBtn);
 
     // Confirm that the challenge was created in storage with 35 days
-    const active = storageRepository.getActiveChallenge();
-    expect(active).toBeDefined();
-    expect(active?.duration_days).toBe(35);
+    await waitFor(() => {
+      const active = storageRepository.getActiveChallenge();
+      expect(active).toBeDefined();
+      expect(active?.duration_days).toBe(35);
+    });
   });
 
   it('renders Dashboard with active challenge, allows checking tasks & habits directly', async () => {

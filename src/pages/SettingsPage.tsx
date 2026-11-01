@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   User,
   Download,
@@ -24,7 +24,7 @@ export const SettingsPage: React.FC = () => {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
-    if (!window.confirm('Sign out of GlowUp? Your local data will remain saved in this browser.')) return;
+    if (!window.confirm('Sign out of your GlowUp Studio account? Your data is securely synchronized with your account.')) return;
     setIsSigningOut(true);
     await signOut();
     navigate('/auth', { replace: true });

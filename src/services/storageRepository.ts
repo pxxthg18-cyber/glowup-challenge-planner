@@ -1,4 +1,4 @@
-﻿import {
+import {
   Template,
   Challenge,
   Goal,
@@ -10,6 +10,25 @@
   Milestone,
   VisionBoardItem,
   Profile,
+  WeeklyPlan,
+  WeeklyPriority,
+  WeeklyGoal,
+  WeeklyDailyTask,
+  WeeklyReflection,
+  LifeGoal,
+  LifeGoalMilestone,
+  BucketListItem,
+  Routine,
+  RoutineStep,
+  RoutineStepLog,
+  RoutineConsistencyStats,
+  LifeBalanceAssessment,
+  LifeBalanceRating,
+  GlowUpReport,
+  GlowUpReportType,
+  FoodEntry,
+  MealType,
+  DailyFoodSummary,
 } from '../types/database';
 import { SEED_TEMPLATES } from '../data/seedTemplates';
 import {
@@ -34,6 +53,16 @@ const STORAGE_KEYS = {
   FOCUS: 'glowup_focus',
   MILESTONES: 'glowup_milestones',
   VISION: 'glowup_vision',
+  WEEKLY_PLANS: 'glowup_weekly_plans',
+  LIFE_GOALS: 'glowup_life_goals',
+  LIFE_GOAL_MILESTONES: 'glowup_life_goal_milestones',
+  BUCKET_LIST: 'glowup_bucket_list',
+  ROUTINES: 'glowup_routines',
+  ROUTINE_STEPS: 'glowup_routine_steps',
+  ROUTINE_STEP_LOGS: 'glowup_routine_step_logs',
+  LIFE_BALANCE_ASSESSMENTS: 'glowup_life_balance_assessments',
+  GLOWUP_REPORTS: 'glowup_reports',
+  FOOD_ENTRIES: 'glowup_food_entries',
 };
 
 function getStored<T>(key: string, defaultValue: T): T {
@@ -86,6 +115,17 @@ function getUserStored<T>(baseKey: string, defaultValue: T, explicitUserId?: str
 function setUserStored<T>(baseKey: string, value: T, explicitUserId?: string): void {
   const userKey = getUserKey(baseKey, explicitUserId);
   setStored(userKey, value);
+}
+
+function safeUUID(prefix = 'id'): string {
+  try {
+    if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+  } catch {
+    // fallback
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 export const storageRepository = {
@@ -790,5 +830,712 @@ export const storageRepository = {
     if (!user) throw new Error('Not authenticated');
     const userId = user.id;
     setUserStored(STORAGE_KEYS.VISION, this.getVisionBoard().filter(v => v.id !== id), userId);
+  },
+
+  // ==========================================
+  // FEATURE 1: WEEKLY PLANNER
+  // ==========================================
+
+  getWeeklyPlans(): WeeklyPlan[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    return getUserStored<WeeklyPlan[]>(STORAGE_KEYS.WEEKLY_PLANS, [], user.id);
+  },
+
+  getWeeklyPlan(weekStartDate: string): WeeklyPlan | null {
+    const user = this.getCurrentUser();
+    if (!user) return null;
+    const plans = this.getWeeklyPlans();
+    return plans.find(p => p.week_start_date === weekStartDate) || null;
+  },
+
+  saveWeeklyPlan(planUpdates: Partial<WeeklyPlan> & { week_start_date: string; week_end_date: string }): WeeklyPlan {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const plans = this.getWeeklyPlans();
+    const index = plans.findIndex(p => p.week_start_date === planUpdates.week_start_date);
+
+    if (index !== -1) {
+      const updated: WeeklyPlan = {
+        ...plans[index],
+        ...planUpdates,
+        updated_at: new Date().toISOString(),
+      };
+      plans[index] = updated;
+      setUserStored(STORAGE_KEYS.WEEKLY_PLANS, plans, userId);
+      return updated;
+    } else {
+      const newPlan: WeeklyPlan = {
+        id: `wp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        user_id: userId,
+        week_start_date: planUpdates.week_start_date,
+        week_end_date: planUpdates.week_end_date,
+        priorities: planUpdates.priorities || [
+          { id: 'p1', text: '', completed: false },
+          { id: 'p2', text: '', completed: false },
+          { id: 'p3', text: '', completed: false },
+        ],
+        goals: planUpdates.goals || [],
+        daily_tasks: planUpdates.daily_tasks || {
+          mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [],
+        },
+        reflection: planUpdates.reflection || {
+          accomplishments: '',
+          challenges: '',
+          learnings: '',
+          improvements: '',
+          gratitude: '',
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      plans.unshift(newPlan);
+      setUserStored(STORAGE_KEYS.WEEKLY_PLANS, plans, userId);
+      return newPlan;
+    }
+  },
+
+  // ==========================================
+  // FEATURE 2: LIFE GOALS & BUCKET LIST
+  // ==========================================
+
+  getLifeGoals(status?: string, category?: string): LifeGoal[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    let list = getUserStored<LifeGoal[]>(STORAGE_KEYS.LIFE_GOALS, [], userId);
+    if (status && status !== 'all') {
+      list = list.filter(g => g.status === status);
+    }
+    if (category && category !== 'All') {
+      list = list.filter(g => g.category === category);
+    }
+    const allMilestones = this.getLifeGoalMilestones();
+    return list.map(g => ({
+      ...g,
+      milestones: allMilestones
+        .filter(m => m.goal_id === g.id)
+        .sort((a, b) => a.display_order - b.display_order),
+    }));
+  },
+
+  createLifeGoal(goal: Omit<LifeGoal, 'id' | 'created_at' | 'updated_at'>): LifeGoal {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const newGoal: LifeGoal = {
+      ...goal,
+      id: `lg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      status: goal.status || 'in_progress',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const all = getUserStored<LifeGoal[]>(STORAGE_KEYS.LIFE_GOALS, [], userId);
+    all.unshift(newGoal);
+    setUserStored(STORAGE_KEYS.LIFE_GOALS, all, userId);
+    return newGoal;
+  },
+
+  updateLifeGoal(id: string, updates: Partial<LifeGoal>): LifeGoal {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<LifeGoal[]>(STORAGE_KEYS.LIFE_GOALS, [], userId);
+    const index = all.findIndex(g => g.id === id);
+    if (index === -1) throw new Error('Life goal not found');
+
+    const updated = {
+      ...all[index],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    all[index] = updated;
+    setUserStored(STORAGE_KEYS.LIFE_GOALS, all, userId);
+    return updated;
+  },
+
+  deleteLifeGoal(id: string): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<LifeGoal[]>(STORAGE_KEYS.LIFE_GOALS, [], userId).filter(g => g.id !== id);
+    setUserStored(STORAGE_KEYS.LIFE_GOALS, all, userId);
+    const milestones = getUserStored<LifeGoalMilestone[]>(STORAGE_KEYS.LIFE_GOAL_MILESTONES, [], userId).filter(m => m.goal_id !== id);
+    setUserStored(STORAGE_KEYS.LIFE_GOAL_MILESTONES, milestones, userId);
+  },
+
+  getLifeGoalMilestones(goalId?: string): LifeGoalMilestone[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    const all = getUserStored<LifeGoalMilestone[]>(STORAGE_KEYS.LIFE_GOAL_MILESTONES, [], userId);
+    return goalId ? all.filter(m => m.goal_id === goalId) : all;
+  },
+
+  createLifeGoalMilestone(milestone: Omit<LifeGoalMilestone, 'id' | 'created_at'>): LifeGoalMilestone {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const newMilestone: LifeGoalMilestone = {
+      ...milestone,
+      id: `lgm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+    };
+    const all = getUserStored<LifeGoalMilestone[]>(STORAGE_KEYS.LIFE_GOAL_MILESTONES, [], userId);
+    all.push(newMilestone);
+    setUserStored(STORAGE_KEYS.LIFE_GOAL_MILESTONES, all, userId);
+    return newMilestone;
+  },
+
+  updateLifeGoalMilestone(id: string, updates: Partial<LifeGoalMilestone>): LifeGoalMilestone {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<LifeGoalMilestone[]>(STORAGE_KEYS.LIFE_GOAL_MILESTONES, [], userId);
+    const index = all.findIndex(m => m.id === id);
+    if (index === -1) throw new Error('Milestone not found');
+
+    const updated = {
+      ...all[index],
+      ...updates,
+      completed_at: updates.is_completed !== undefined
+        ? (updates.is_completed ? (all[index].completed_at || new Date().toISOString()) : null)
+        : all[index].completed_at,
+    };
+    all[index] = updated;
+    setUserStored(STORAGE_KEYS.LIFE_GOAL_MILESTONES, all, userId);
+    return updated;
+  },
+
+  deleteLifeGoalMilestone(id: string): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<LifeGoalMilestone[]>(STORAGE_KEYS.LIFE_GOAL_MILESTONES, [], userId).filter(m => m.id !== id);
+    setUserStored(STORAGE_KEYS.LIFE_GOAL_MILESTONES, all, userId);
+  },
+
+  getBucketListItems(category?: string): BucketListItem[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    let list = getUserStored<BucketListItem[]>(STORAGE_KEYS.BUCKET_LIST, [], userId);
+    if (category && category !== 'All') {
+      list = list.filter(item => item.category === category);
+    }
+    return list;
+  },
+
+  createBucketListItem(item: Omit<BucketListItem, 'id' | 'created_at'>): BucketListItem {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const newItem: BucketListItem = {
+      ...item,
+      id: `bl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+    };
+    const all = getUserStored<BucketListItem[]>(STORAGE_KEYS.BUCKET_LIST, [], userId);
+    all.unshift(newItem);
+    setUserStored(STORAGE_KEYS.BUCKET_LIST, all, userId);
+    return newItem;
+  },
+
+  updateBucketListItem(id: string, updates: Partial<BucketListItem>): BucketListItem {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<BucketListItem[]>(STORAGE_KEYS.BUCKET_LIST, [], userId);
+    const index = all.findIndex(b => b.id === id);
+    if (index === -1) throw new Error('Bucket list item not found');
+
+    const updated = {
+      ...all[index],
+      ...updates,
+      completed_at: updates.is_completed !== undefined
+        ? (updates.is_completed ? (all[index].completed_at || new Date().toISOString()) : null)
+        : all[index].completed_at,
+    };
+    all[index] = updated;
+    setUserStored(STORAGE_KEYS.BUCKET_LIST, all, userId);
+    return updated;
+  },
+
+  deleteBucketListItem(id: string): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<BucketListItem[]>(STORAGE_KEYS.BUCKET_LIST, [], userId).filter(b => b.id !== id);
+    setUserStored(STORAGE_KEYS.BUCKET_LIST, all, userId);
+  },
+
+  // ==========================================
+  // FEATURE 3: SELF-CARE ROUTINE BUILDER
+  // ==========================================
+
+  getRoutines(): Routine[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    const routines = getUserStored<Routine[]>(STORAGE_KEYS.ROUTINES, [], userId);
+    const allSteps = this.getRoutineSteps();
+    return routines.map(r => ({
+      ...r,
+      steps: allSteps
+        .filter(s => s.routine_id === r.id)
+        .sort((a, b) => a.step_order - b.step_order),
+    }));
+  },
+
+  createRoutine(routine: Omit<Routine, 'id' | 'created_at' | 'updated_at'>): Routine {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const newRoutine: Routine = {
+      ...routine,
+      id: `rt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      is_paused: Boolean(routine.is_paused),
+      is_archived: false,
+      reminder_enabled: Boolean(routine.reminder_enabled),
+      display_order: routine.display_order ?? 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const all = getUserStored<Routine[]>(STORAGE_KEYS.ROUTINES, [], userId);
+    all.push(newRoutine);
+    setUserStored(STORAGE_KEYS.ROUTINES, all, userId);
+    return newRoutine;
+  },
+
+  updateRoutine(id: string, updates: Partial<Routine>): Routine {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<Routine[]>(STORAGE_KEYS.ROUTINES, [], userId);
+    const index = all.findIndex(r => r.id === id);
+    if (index === -1) throw new Error('Routine not found');
+
+    const updated = {
+      ...all[index],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    all[index] = updated;
+    setUserStored(STORAGE_KEYS.ROUTINES, all, userId);
+    return updated;
+  },
+
+  deleteRoutine(id: string): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<Routine[]>(STORAGE_KEYS.ROUTINES, [], userId).filter(r => r.id !== id);
+    setUserStored(STORAGE_KEYS.ROUTINES, all, userId);
+    const steps = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId).filter(s => s.routine_id !== id);
+    setUserStored(STORAGE_KEYS.ROUTINE_STEPS, steps, userId);
+    const logs = getUserStored<RoutineStepLog[]>(STORAGE_KEYS.ROUTINE_STEP_LOGS, [], userId).filter(l => l.routine_id !== id);
+    setUserStored(STORAGE_KEYS.ROUTINE_STEP_LOGS, logs, userId);
+  },
+
+  getRoutineSteps(routineId?: string): RoutineStep[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    const all = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId);
+    const filtered = routineId ? all.filter(s => s.routine_id === routineId) : all;
+    return filtered.sort((a, b) => a.step_order - b.step_order);
+  },
+
+  createRoutineStep(step: Omit<RoutineStep, 'id' | 'created_at'>): RoutineStep {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const newStep: RoutineStep = {
+      ...step,
+      id: `rts-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+    };
+    const all = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId);
+    all.push(newStep);
+    setUserStored(STORAGE_KEYS.ROUTINE_STEPS, all, userId);
+    return newStep;
+  },
+
+  updateRoutineStep(id: string, updates: Partial<RoutineStep>): RoutineStep {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId);
+    const index = all.findIndex(s => s.id === id);
+    if (index === -1) throw new Error('Routine step not found');
+
+    const updated = {
+      ...all[index],
+      ...updates,
+    };
+    all[index] = updated;
+    setUserStored(STORAGE_KEYS.ROUTINE_STEPS, all, userId);
+    return updated;
+  },
+
+  deleteRoutineStep(id: string): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId).filter(s => s.id !== id);
+    setUserStored(STORAGE_KEYS.ROUTINE_STEPS, all, userId);
+  },
+
+  reorderRoutineSteps(routineId: string, stepIds: string[]): void {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<RoutineStep[]>(STORAGE_KEYS.ROUTINE_STEPS, [], userId);
+
+    const updated = all.map(step => {
+      if (step.routine_id === routineId) {
+        const newOrder = stepIds.indexOf(step.id);
+        if (newOrder !== -1) {
+          return { ...step, step_order: newOrder };
+        }
+      }
+      return step;
+    });
+
+    setUserStored(STORAGE_KEYS.ROUTINE_STEPS, updated, userId);
+  },
+
+  getRoutineStepLogs(date?: string, routineId?: string): RoutineStepLog[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const userId = user.id;
+    let logs = getUserStored<RoutineStepLog[]>(STORAGE_KEYS.ROUTINE_STEP_LOGS, [], userId);
+    if (date) logs = logs.filter(l => l.date === date);
+    if (routineId) logs = logs.filter(l => l.routine_id === routineId);
+    return logs;
+  },
+
+  toggleRoutineStepLog(routineId: string, stepId: string, date: string): { completed: boolean; log: RoutineStepLog | null } {
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+    const userId = user.id;
+    const all = getUserStored<RoutineStepLog[]>(STORAGE_KEYS.ROUTINE_STEP_LOGS, [], userId);
+    const existingIndex = all.findIndex(l => l.step_id === stepId && l.date === date);
+
+    if (existingIndex !== -1) {
+      all.splice(existingIndex, 1);
+      setUserStored(STORAGE_KEYS.ROUTINE_STEP_LOGS, all, userId);
+      return { completed: false, log: null };
+    } else {
+      const newLog: RoutineStepLog = {
+        id: `rsl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        routine_id: routineId,
+        step_id: stepId,
+        user_id: userId,
+        date,
+        completed: true,
+        completed_at: new Date().toISOString(),
+      };
+      all.push(newLog);
+      setUserStored(STORAGE_KEYS.ROUTINE_STEP_LOGS, all, userId);
+      return { completed: true, log: newLog };
+    }
+  },
+
+  calculateRoutineConsistencyStats(): RoutineConsistencyStats {
+    const user = this.getCurrentUser();
+    if (!user) {
+      return {
+        currentStreak: 0,
+        longestStreak: 0,
+        weeklyConsistency: 0,
+        monthlyConsistency: 0,
+        mostConsistentRoutine: null,
+        dailyHistory: {},
+      };
+    }
+    const userId = user.id;
+    const routines = this.getRoutines().filter(r => !r.is_archived);
+    const allLogs = this.getRoutineStepLogs().filter(l => l.completed);
+
+    const dailyHistory: Record<string, number> = {};
+    const routineCounts: Record<string, number> = {};
+
+    allLogs.forEach(log => {
+      dailyHistory[log.date] = (dailyHistory[log.date] || 0) + 1;
+      routineCounts[log.routine_id] = (routineCounts[log.routine_id] || 0) + 1;
+    });
+
+    let mostConsistentRoutineId: string | null = null;
+    let highestCount = 0;
+    Object.entries(routineCounts).forEach(([rId, count]) => {
+      if (count > highestCount) {
+        highestCount = count;
+        mostConsistentRoutineId = rId;
+      }
+    });
+    const foundRoutine = routines.find(r => r.id === mostConsistentRoutineId);
+    const mostConsistentRoutine = foundRoutine ? foundRoutine.title : null;
+
+    const today = getTodayDateString();
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+    let broken = false;
+
+    for (let i = 0; i < 180; i++) {
+      const checkDate = addDays(today, -i);
+      const hasCompletedSteps = Boolean(dailyHistory[checkDate] && dailyHistory[checkDate] > 0);
+
+      if (hasCompletedSteps) {
+        if (!broken) currentStreak++;
+        tempStreak++;
+        if (tempStreak > longestStreak) longestStreak = tempStreak;
+      } else {
+        if (checkDate === today) {
+          // Today is still active; streak from yesterday can still continue
+        } else {
+          broken = true;
+          tempStreak = 0;
+        }
+      }
+    }
+
+    if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+    let past7DaysActive = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(today, -i);
+      if (dailyHistory[d] && dailyHistory[d] > 0) past7DaysActive++;
+    }
+    const weeklyConsistency = Math.round((past7DaysActive / 7) * 100);
+
+    let past30DaysActive = 0;
+    for (let i = 0; i < 30; i++) {
+      const d = addDays(today, -i);
+      if (dailyHistory[d] && dailyHistory[d] > 0) past30DaysActive++;
+    }
+    const monthlyConsistency = Math.round((past30DaysActive / 30) * 100);
+
+    return {
+      currentStreak,
+      longestStreak,
+      weeklyConsistency,
+      monthlyConsistency,
+      mostConsistentRoutine,
+      dailyHistory,
+    };
+  },
+
+  // ==========================================
+  // Life Balance Wheel
+  // ==========================================
+  saveLifeBalanceAssessment(
+    data: Omit<LifeBalanceAssessment, 'id' | 'created_at'>
+  ): LifeBalanceAssessment {
+    const user = this.getCurrentUser();
+    const userId = data.user_id || user?.id || 'usr-default';
+    const list = getStored<LifeBalanceAssessment[]>(STORAGE_KEYS.LIFE_BALANCE_ASSESSMENTS, []);
+    const newAssessment: LifeBalanceAssessment = {
+      ...data,
+      user_id: userId,
+      id: safeUUID('lba'),
+      created_at: new Date().toISOString(),
+    };
+    list.unshift(newAssessment); // newest first
+    setStored(STORAGE_KEYS.LIFE_BALANCE_ASSESSMENTS, list);
+    return newAssessment;
+  },
+
+  getLifeBalanceAssessments(challengeId?: string): LifeBalanceAssessment[] {
+    const user = this.getCurrentUser();
+    const list = getStored<LifeBalanceAssessment[]>(STORAGE_KEYS.LIFE_BALANCE_ASSESSMENTS, []);
+    let filtered = list;
+    if (user?.id) {
+      filtered = filtered.filter((a) => a.user_id === user.id || !a.user_id || a.user_id === '');
+    }
+    if (challengeId) {
+      const challengeFiltered = filtered.filter((a) => a.challenge_id === challengeId);
+      if (challengeFiltered.length > 0) {
+        filtered = challengeFiltered;
+      }
+    }
+    return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
+
+  getLatestLifeBalanceAssessment(challengeId?: string): LifeBalanceAssessment | null {
+    const list = this.getLifeBalanceAssessments(challengeId);
+    return list.length > 0 ? list[0] : null;
+  },
+
+  // ==========================================
+  // Dynamic GlowUp Progress Reports
+  // ==========================================
+  saveGlowUpReport(
+    data: Omit<GlowUpReport, 'id' | 'created_at' | 'updated_at'>
+  ): GlowUpReport {
+    const list = getStored<GlowUpReport[]>(STORAGE_KEYS.GLOWUP_REPORTS, []);
+    const existingIndex = list.findIndex(
+      (r) =>
+        r.challenge_id === data.challenge_id &&
+        r.report_type === data.report_type &&
+        r.period_number === data.period_number
+    );
+
+    const now = new Date().toISOString();
+    if (existingIndex >= 0) {
+      const updated: GlowUpReport = {
+        ...list[existingIndex],
+        ...data,
+        updated_at: now,
+      };
+      list[existingIndex] = updated;
+      setStored(STORAGE_KEYS.GLOWUP_REPORTS, list);
+      return updated;
+    } else {
+      const newReport: GlowUpReport = {
+        ...data,
+        id: safeUUID('rep'),
+        created_at: now,
+        updated_at: now,
+      };
+      list.push(newReport);
+      setStored(STORAGE_KEYS.GLOWUP_REPORTS, list);
+      return newReport;
+    }
+  },
+
+  getGlowUpReports(challengeId: string): GlowUpReport[] {
+    const user = this.getCurrentUser();
+    if (!user) return [];
+    const list = getStored<GlowUpReport[]>(STORAGE_KEYS.GLOWUP_REPORTS, []);
+    return list
+      .filter((r) => r.user_id === user.id && r.challenge_id === challengeId)
+      .sort((a, b) => a.period_number - b.period_number);
+  },
+
+  getGlowUpReportByPeriod(
+    challengeId: string,
+    reportType: GlowUpReportType,
+    periodNumber: number
+  ): GlowUpReport | null {
+    const reports = this.getGlowUpReports(challengeId);
+    return (
+      reports.find(
+        (r) => r.report_type === reportType && r.period_number === periodNumber
+      ) || null
+    );
+  },
+
+  // ==========================================
+  // Food & Diet Tracker
+  // ==========================================
+  getFoodEntries(date?: string, explicitUserId?: string): FoodEntry[] {
+    const user = this.getCurrentUser();
+    const userId = explicitUserId || user?.id;
+    const all = getUserStored<FoodEntry[]>(STORAGE_KEYS.FOOD_ENTRIES, [], userId);
+    let filtered = all;
+    if (date) {
+      filtered = filtered.filter((entry) => entry.entry_date === date);
+    }
+    // Sort by entry_time (earliest first), fallback to created_at
+    return filtered.sort((a, b) => {
+      if (a.entry_time && b.entry_time) {
+        return a.entry_time.localeCompare(b.entry_time);
+      }
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  },
+
+  getFoodEntryById(id: string, explicitUserId?: string): FoodEntry | null {
+    const user = this.getCurrentUser();
+    const userId = explicitUserId || user?.id;
+    const all = getUserStored<FoodEntry[]>(STORAGE_KEYS.FOOD_ENTRIES, [], userId);
+    return all.find((entry) => entry.id === id) || null;
+  },
+
+  createFoodEntry(
+    data: Omit<FoodEntry, 'id' | 'created_at' | 'updated_at'>,
+    explicitUserId?: string
+  ): FoodEntry {
+    const user = this.getCurrentUser();
+    const userId = explicitUserId || data.user_id || user?.id || 'usr-default';
+    const all = getUserStored<FoodEntry[]>(STORAGE_KEYS.FOOD_ENTRIES, [], userId);
+
+    const newEntry: FoodEntry = {
+      ...data,
+      id: safeUUID('food'),
+      user_id: userId,
+      quantity: data.quantity?.trim() || null,
+      entry_time: data.entry_time?.trim() || null,
+      notes: data.notes?.trim() || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    all.push(newEntry);
+    setUserStored(STORAGE_KEYS.FOOD_ENTRIES, all, userId);
+    return newEntry;
+  },
+
+  updateFoodEntry(
+    id: string,
+    updates: Partial<FoodEntry>,
+    explicitUserId?: string
+  ): FoodEntry {
+    const user = this.getCurrentUser();
+    const userId = explicitUserId || user?.id;
+    const all = getUserStored<FoodEntry[]>(STORAGE_KEYS.FOOD_ENTRIES, [], userId);
+    const index = all.findIndex((entry) => entry.id === id);
+
+    if (index === -1) {
+      throw new Error(`Food entry with id ${id} not found`);
+    }
+
+    const updatedEntry: FoodEntry = {
+      ...all[index],
+      ...updates,
+      quantity: updates.quantity !== undefined ? (updates.quantity?.trim() || null) : all[index].quantity,
+      entry_time: updates.entry_time !== undefined ? (updates.entry_time?.trim() || null) : all[index].entry_time,
+      notes: updates.notes !== undefined ? (updates.notes?.trim() || null) : all[index].notes,
+      updated_at: new Date().toISOString(),
+    };
+
+    all[index] = updatedEntry;
+    setUserStored(STORAGE_KEYS.FOOD_ENTRIES, all, userId);
+    return updatedEntry;
+  },
+
+  deleteFoodEntry(id: string, explicitUserId?: string): boolean {
+    const user = this.getCurrentUser();
+    const userId = explicitUserId || user?.id;
+    const all = getUserStored<FoodEntry[]>(STORAGE_KEYS.FOOD_ENTRIES, [], userId);
+    const index = all.findIndex((entry) => entry.id === id);
+
+    if (index === -1) return false;
+
+    all.splice(index, 1);
+    setUserStored(STORAGE_KEYS.FOOD_ENTRIES, all, userId);
+    return true;
+  },
+
+  getFoodSummary(date: string, explicitUserId?: string): DailyFoodSummary {
+    const entries = this.getFoodEntries(date, explicitUserId);
+    const mealTypesSet = new Set<MealType>();
+    entries.forEach((e) => mealTypesSet.add(e.meal_type));
+
+    const loggedMealTypes = Array.from(mealTypesSet);
+    return {
+      date,
+      totalEntries: entries.length,
+      mealsLoggedCount: loggedMealTypes.length,
+      loggedMealTypes,
+    };
   },
 };

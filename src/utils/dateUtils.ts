@@ -324,3 +324,90 @@ export function generateDynamicMilestones(
 
   return milestones;
 }
+
+// ==========================================
+// WEEKLY PLANNER DATE HELPERS (Monday - Sunday)
+// ==========================================
+
+export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+export type DayKey = typeof DAY_KEYS[number];
+
+export const DAY_LABELS: Record<DayKey, string> = {
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+  sun: 'Sunday',
+};
+
+/**
+ * Returns Monday (YYYY-MM-DD) for any given date.
+ */
+export function getMondayOfWeek(dateStr: string): string {
+  const d = parseDate(dateStr);
+  const day = d.getDay(); // 0 is Sunday, 1 is Monday...
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  return addDays(dateStr, diffToMonday);
+}
+
+/**
+ * Returns Sunday (YYYY-MM-DD) for any given date.
+ */
+export function getSundayOfWeek(dateStr: string): string {
+  const monday = getMondayOfWeek(dateStr);
+  return addDays(monday, 6);
+}
+
+/**
+ * Formats a weekly range cleanly (e.g. "Oct 26 – Nov 1, 2026")
+ */
+export function formatWeekRange(mondayStr: string): string {
+  const sundayStr = addDays(mondayStr, 6);
+  const mon = parseDate(mondayStr);
+  const sun = parseDate(sundayStr);
+
+  const monMonth = mon.toLocaleDateString('en-US', { month: 'short' });
+  const sunMonth = sun.toLocaleDateString('en-US', { month: 'short' });
+  const monDay = mon.getDate();
+  const sunDay = sun.getDate();
+  const monYear = mon.getFullYear();
+  const sunYear = sun.getFullYear();
+
+  if (monYear !== sunYear) {
+    return `${monMonth} ${monDay}, ${monYear} – ${sunMonth} ${sunDay}, ${sunYear}`;
+  }
+  if (monMonth !== sunMonth) {
+    return `${monMonth} ${monDay} – ${sunMonth} ${sunDay}, ${sunYear}`;
+  }
+  return `${monMonth} ${monDay} – ${sunDay}, ${sunYear}`;
+}
+
+export interface WeekDayInfo {
+  key: DayKey;
+  date: string;
+  displayDate: string;
+  dayName: string;
+  shortName: string;
+  isToday: boolean;
+}
+
+/**
+ * Returns full metadata for all 7 days of the week starting from Monday.
+ */
+export function getWeekDaysInfo(mondayStr: string): WeekDayInfo[] {
+  const today = getTodayDateString();
+  return DAY_KEYS.map((key, index) => {
+    const date = addDays(mondayStr, index);
+    return {
+      key,
+      date,
+      displayDate: formatDisplayDate(date),
+      dayName: DAY_LABELS[key],
+      shortName: DAY_LABELS[key].substring(0, 3),
+      isToday: date === today,
+    };
+  });
+}
+

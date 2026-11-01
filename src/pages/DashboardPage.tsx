@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
   Award,
   Trash2,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { useChallenge } from '../context/ChallengeContext';
 import { api } from '../services/api';
@@ -31,7 +32,7 @@ import { DeleteChallengeModal } from '../components/challenge/DeleteChallengeMod
 import confetti from 'canvas-confetti';
 
 export const DashboardPage: React.FC = () => {
-  const { activeChallenge, hasActiveChallenge } = useChallenge();
+  const { activeChallenge, hasActiveChallenge, isLoading: isChallengeLoading } = useChallenge();
   const navigate = useNavigate();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -82,6 +83,15 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  if (isChallengeLoading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-[#C9879B] border-t-transparent animate-spin" />
+        <span className="text-xs text-[#77727B] font-medium">Loading your GlowUp plan...</span>
+      </div>
+    );
+  }
 
   // If no active challenge, guide user to Template Gallery
   if (!hasActiveChallenge || !activeChallenge) {
@@ -458,8 +468,8 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. QUICK UTILITY SHORTCUTS (FOCUS TIMER & JOURNAL) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* 3. QUICK UTILITY SHORTCUTS (FOCUS TIMER, JOURNAL & FOOD TRACKER) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div
           onClick={() => navigate('/focus')}
           className="p-5 rounded-3xl bg-gradient-to-br from-white to-[#FAF7F2] border border-[#E8E2D9] hover:border-[#C9879B] transition-all cursor-pointer shadow-xs group flex items-center justify-between"
@@ -477,7 +487,7 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <ArrowUpRight className="w-4 h-4 text-[#77727B] group-hover:text-[#29272B] transition-colors" />
+          <ArrowUpRight className="w-4 h-4 text-[#77727B] group-hover:text-[#29272B] transition-colors shrink-0" />
         </div>
 
         <div
@@ -497,7 +507,27 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <ArrowUpRight className="w-4 h-4 text-[#77727B] group-hover:text-[#29272B] transition-colors" />
+          <ArrowUpRight className="w-4 h-4 text-[#77727B] group-hover:text-[#29272B] transition-colors shrink-0" />
+        </div>
+
+        <div
+          onClick={() => navigate('/food-tracker')}
+          className="p-5 rounded-3xl bg-gradient-to-br from-white to-[#FAF7F2] border border-[#E8E2D9] hover:border-[#C9879B] transition-all cursor-pointer shadow-xs group flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-[#DCE8DD] text-[#3B6E47] flex items-center justify-center group-hover:scale-105 transition-transform">
+              <UtensilsCrossed className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-[#29272B] uppercase tracking-wider">
+                Food & Diet Tracker
+              </h3>
+              <p className="text-[11px] text-[#77727B]">
+                Mindful eating log for daily meals & drinks
+              </p>
+            </div>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-[#77727B] group-hover:text-[#29272B] transition-colors shrink-0" />
         </div>
       </div>
 

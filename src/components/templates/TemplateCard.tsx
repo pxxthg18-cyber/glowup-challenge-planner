@@ -67,16 +67,16 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         <div className="mt-5 pt-3.5 border-t border-[#E8E2D9]/70 flex items-center gap-2">
           <button
             onClick={() => onPreview(template)}
-            className="flex-1 py-2 px-3 rounded-xl border border-[#E8E2D9] text-[#29272B] hover:bg-[#FAF7F2] text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            className="flex-1 py-2 px-3 rounded-xl border border-[#E8E2D9] bg-white text-[#29272B] hover:bg-[#FAF7F2] text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
-            <Eye className="w-4 h-4 text-[#77727B]" />
-            <span>Preview</span>
+            <Eye className="w-4 h-4 text-[#C9879B]" />
+            <span>View Details</span>
           </button>
           <button
             onClick={() => onUse(template)}
             className="flex-1 py-2 px-3 rounded-xl bg-[#FAF7F2] hover:bg-[#C9879B] text-[#29272B] hover:text-white border border-[#E8E2D9] hover:border-[#C9879B] text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
           >
-            <span>Start</span>
+            <span>Start Plan</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

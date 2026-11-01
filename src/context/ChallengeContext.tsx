@@ -24,6 +24,12 @@ export const ChallengeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const refreshChallenges = useCallback(async () => {
+    if (!user) {
+      setChallenges([]);
+      setActiveChallengeState(null);
+      setIsLoading(false);
+      return;
+    }
     try {
       const all = await api.getChallenges();
       setChallenges(all);
@@ -34,7 +40,7 @@ export const ChallengeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     refreshChallenges();

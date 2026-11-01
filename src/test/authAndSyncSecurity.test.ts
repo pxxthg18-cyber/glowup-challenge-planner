@@ -193,4 +193,57 @@ describe('Authentication, Sync, and Security Isolation Verification', () => {
     expect(refreshedChallenges[0].id).toBe(challenge.id);
     expect(refreshedChallenges[0].title).toBe('Charlie Creative Sprint');
   });
+
+  it('saves life balance assessment correctly and isolates across users', async () => {
+    // User A
+    const userA: Profile = {
+      id: 'user_lba_a',
+      email: 'lba_a@test.com',
+      full_name: 'LBA User A',
+      avatar_url: null,
+      bio: null,
+      preferred_theme: 'light',
+      focus_daily_target_minutes: 60,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    storageRepository.setCurrentUser(userA);
+
+    const savedA = await api.saveLifeBalanceAssessment({
+      user_id: userA.id,
+      challenge_id: null,
+      plan_name: 'Fitness & Physical Vitality Plan',
+      ratings: [
+        { category: 'Physical Fitness', score: 8, description: 'Cardio' },
+        { category: 'Nutrition & Fuel', score: 7, description: 'Diet' },
+      ],
+      overall_score: 7.5,
+      notes: 'Feeling energized today!',
+    });
+
+    expect(savedA.id).toBeDefined();
+    expect(savedA.overall_score).toBe(7.5);
+
+    const listA = await api.getLifeBalanceAssessments();
+    expect(listA.length).toBeGreaterThanOrEqual(1);
+    expect(listA[0].plan_name).toBe('Fitness & Physical Vitality Plan');
+
+    // Switch to User B
+    const userB: Profile = {
+      id: 'user_lba_b',
+      email: 'lba_b@test.com',
+      full_name: 'LBA User B',
+      avatar_url: null,
+      bio: null,
+      preferred_theme: 'light',
+      focus_daily_target_minutes: 60,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    storageRepository.setCurrentUser(userB);
+
+    // User B should not see User A's assessments
+    const listB = await api.getLifeBalanceAssessments();
+    expect(listB).toHaveLength(0);
+  });
 });

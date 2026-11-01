@@ -1,21 +1,26 @@
-﻿import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Compass,
   LayoutDashboard,
   CheckSquare,
   Flame,
   Target,
+  Trophy,
+  Heart,
   CalendarDays,
   BookOpen,
   Timer,
   BarChart3,
+  PieChart,
+  UtensilsCrossed,
   Sparkles,
   Settings,
   PlusCircle,
   ChevronDown,
   X,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChallenge } from '../../context/ChallengeContext';
@@ -30,9 +35,17 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateModal }) => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const { activeChallenge, challenges, setActiveChallenge } = useChallenge();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  const handleLogout = async () => {
+    if (window.confirm('Sign out of your GlowUp Studio account?')) {
+      await signOut();
+      navigate('/auth', { replace: true });
+    }
+  };
 
   const progress = activeChallenge
     ? getChallengeProgress(activeChallenge.start_date, activeChallenge.end_date, activeChallenge.duration_days)
@@ -44,10 +57,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
     { to: '/tasks', label: 'Tasks & Kanban', icon: CheckSquare },
     { to: '/habits', label: 'Habit Tracker', icon: Flame },
     { to: '/goals', label: 'Goals & Milestones', icon: Target },
+    { to: '/life-goals', label: 'Life Goals & Bucket List', icon: Trophy },
+    { to: '/self-care', label: 'Self-Care Routines', icon: Heart },
+    { to: '/life-balance', label: 'Life Balance Wheel', icon: PieChart },
+    { to: '/food-tracker', label: 'Food & Diet Tracker', icon: UtensilsCrossed },
     { to: '/calendar', label: 'Calendar Planner', icon: CalendarDays },
-    { to: '/journal', label: 'Daily Journal', icon: BookOpen },
+    { to: '/journal', label: 'Daily Journal & Weekly Planner', icon: BookOpen },
     { to: '/focus', label: 'Focus Room', icon: Timer },
-    { to: '/reports', label: 'Progress Reports', icon: BarChart3 },
+    { to: '/reports', label: 'Dynamic GlowUp Reports', icon: BarChart3 },
     { to: '/vision', label: 'Vision Board', icon: Sparkles },
     { to: '/settings', label: 'Settings & Cloud', icon: Settings },
   ];
@@ -65,12 +82,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
       {/* Sidebar container */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#FAF7F2] border-r border-[#E8E2D9] flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0",
+          "fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#FAF7F2] border-r border-[#E8E2D9] flex flex-col transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Brand header */}
-        <div className="p-5 border-b border-[#E8E2D9]/70 flex items-center justify-between">
+        <div className="p-5 border-b border-[#E8E2D9]/70 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#F2DDE3] flex items-center justify-center text-[#C9879B] shadow-xs">
               <Sparkles className="w-5 h-5 fill-[#C9879B]" />
@@ -94,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         </div>
 
         {/* Active Challenge Selector & Mini Progress */}
-        <div className="p-4 mx-3 my-2.5 rounded-2xl bg-white border border-[#E8E2D9] shadow-xs">
+        <div className="p-4 mx-3 my-2.5 rounded-2xl bg-white border border-[#E8E2D9] shadow-xs shrink-0">
           <div className="flex items-center justify-between text-xs text-[#77727B] mb-2">
             <span className="font-bold uppercase tracking-wider text-xs">Active Challenge</span>
             <button
@@ -200,8 +217,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
         </nav>
 
         {/* User Profile Pill */}
-        <div className="p-3 border-t border-[#E8E2D9]/70 bg-white/40">
-          <div className="flex items-center gap-3 p-2 rounded-xl">
+        <div className="p-3 border-t border-[#E8E2D9]/70 bg-white/40 shrink-0">
+          <div className="flex items-center gap-2.5 p-2 rounded-xl">
             {user?.avatar_url ? (
               <img
                 src={user.avatar_url}
@@ -217,6 +234,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenCreateM
               <p className="text-sm font-bold text-[#29272B] truncate">{user?.full_name || 'GlowUp Explorer'}</p>
               <p className="text-xs text-[#77727B] truncate">{user?.email}</p>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              aria-label="Sign Out"
+              className="p-1.5 rounded-lg text-[#77727B] hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>

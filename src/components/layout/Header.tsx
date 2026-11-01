@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF7F2]/90 backdrop-blur-md border-b border-[#E8E2D9] px-4 lg:px-8 py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-30 shrink-0 bg-[#FAF7F2]/90 backdrop-blur-md border-b border-[#E8E2D9] px-4 lg:px-8 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}

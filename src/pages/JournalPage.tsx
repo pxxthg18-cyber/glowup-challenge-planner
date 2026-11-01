@@ -24,10 +24,12 @@ import { api } from '../services/api';
 import { JournalEntry } from '../types/database';
 import { getTodayDateString, formatDisplayDate, getChallengeProgress } from '../utils/dateUtils';
 import { getJournalTopicForDay, DailyJournalTopic } from '../data/journalTopics';
+import { WeeklyPlannerView } from '../components/journal/WeeklyPlannerView';
 
 export const JournalPage: React.FC = () => {
   const { user } = useAuth();
   const { activeChallenge } = useChallenge();
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [search, setSearch] = useState('');
   const [selectedMoodFilter, setSelectedMoodFilter] = useState<number | 'All'>('All');
@@ -214,32 +216,66 @@ export const JournalPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-serif-title text-[#29272B]">
-            Daily Reflection & Journal
+            {activeTab === 'daily' ? 'Daily Reflection & Journal' : 'Weekly Planner & Reflection'}
           </h1>
           <p className="text-xs sm:text-sm text-[#77727B] mt-1">
-            Capture your daily reflections, record simple gratitudes, and track your mindset over time.
+            {activeTab === 'daily'
+              ? 'Capture your daily reflections, record simple gratitudes, and track your mindset over time.'
+              : 'Set weekly goals, choose your top 3 priorities, plan Monday–Sunday tasks, and reflect on your growth.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <button
-            onClick={handleExportData}
-            className="px-3 sm:px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-semibold text-[#29272B] flex items-center gap-1.5 shadow-2xs transition-colors min-h-[42px]"
-            title="Export journal entries as JSON"
-          >
-            <Download className="w-3.5 h-3.5 text-[#77727B]" /> Export
-          </button>
-          <button
-            onClick={() => handleOpenEditor()}
-            className="px-4 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors min-h-[42px]"
-          >
-            <Plus className="w-3.5 h-3.5" /> Write Reflection
-          </button>
-        </div>
+        {activeTab === 'daily' && (
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <button
+              onClick={handleExportData}
+              className="px-3 sm:px-3.5 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-white text-xs font-semibold text-[#29272B] flex items-center gap-1.5 shadow-2xs transition-colors min-h-[42px]"
+              title="Export journal entries as JSON"
+            >
+              <Download className="w-3.5 h-3.5 text-[#77727B]" /> Export
+            </button>
+            <button
+              onClick={() => handleOpenEditor()}
+              className="px-4 py-2.5 rounded-xl bg-[#29272B] hover:bg-[#3E3B40] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors min-h-[42px]"
+            >
+              <Plus className="w-3.5 h-3.5" /> Write Reflection
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 🌟 GUIDED CHALLENGE JOURNAL TOPIC CARD (Shown ONLY when an active challenge is selected) */}
-      {activeChallenge && (
+      {/* Primary Tab Switcher */}
+      <div className="flex border-b border-[#E8E2D9] gap-4">
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`pb-3 px-3 text-xs sm:text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+            activeTab === 'daily'
+              ? 'border-[#C9879B] text-[#C9879B]'
+              : 'border-transparent text-[#77727B] hover:text-[#29272B]'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Daily Journal</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('weekly')}
+          className={`pb-3 px-3 text-xs sm:text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+            activeTab === 'weekly'
+              ? 'border-[#C9879B] text-[#C9879B]'
+              : 'border-transparent text-[#77727B] hover:text-[#29272B]'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Weekly Planner</span>
+        </button>
+      </div>
+
+      {activeTab === 'weekly' ? (
+        <WeeklyPlannerView />
+      ) : (
+        <>
+          {/* 🌟 GUIDED CHALLENGE JOURNAL TOPIC CARD (Shown ONLY when an active challenge is selected) */}
+          {activeChallenge && (
         <div className="relative rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white via-[#FAF7F2] to-[#F2DDE3]/30 border border-[#E8E2D9] shadow-xs overflow-hidden transition-all">
           <div className="absolute top-0 right-0 w-44 h-44 bg-[#F2DDE3]/30 rounded-full blur-2xl pointer-events-none" />
 
@@ -460,6 +496,8 @@ export const JournalPage: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Write/Edit Journal Modal (Responsive & Mobile-Friendly) */}
       {isEditorOpen && (

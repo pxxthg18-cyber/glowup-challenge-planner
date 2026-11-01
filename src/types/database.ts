@@ -31,6 +31,10 @@ export interface Template {
   is_system_template: boolean;
   creator_id?: string | null;
   created_at: string;
+  purpose?: string;
+  what_you_will_do?: string[];
+  duration_label?: string;
+  expected_outcomes?: string;
   goals?: TemplateGoal[];
   habits?: TemplateHabit[];
   tasks?: TemplateTask[];
@@ -206,3 +210,312 @@ export interface VisionBoardItem {
   display_order: number;
   created_at: string;
 }
+
+// ==========================================
+// FEATURE 1: WEEKLY PLANNER TYPES
+// ==========================================
+
+export interface WeeklyPriority {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface WeeklyGoal {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface WeeklyDailyTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  priority?: 'low' | 'medium' | 'high';
+}
+
+export interface WeeklyReflection {
+  accomplishments: string;
+  challenges: string;
+  learnings: string;
+  improvements: string;
+  gratitude: string;
+}
+
+export interface WeeklyPlan {
+  id: string;
+  user_id: string;
+  week_start_date: string; // YYYY-MM-DD (Monday)
+  week_end_date: string;   // YYYY-MM-DD (Sunday)
+  priorities: WeeklyPriority[]; // Exactly 3 priorities
+  goals: WeeklyGoal[];
+  daily_tasks: Record<string, WeeklyDailyTask[]>; // 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'
+  reflection: WeeklyReflection;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
+// FEATURE 2: LIFE GOALS & BUCKET LIST TYPES
+// ==========================================
+
+export type LifeGoalCategory =
+  | 'Career'
+  | 'Education'
+  | 'Fitness'
+  | 'Finance'
+  | 'Travel'
+  | 'Personal Development'
+  | 'Relationships'
+  | 'Lifestyle'
+  | 'Other';
+
+export type LifeGoalStatus = 'not_started' | 'in_progress' | 'achieved' | 'archived';
+
+export interface LifeGoalMilestone {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  target_date?: string;
+  is_completed: boolean;
+  completed_at?: string | null;
+  display_order: number;
+  created_at: string;
+}
+
+export interface LifeGoal {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  category: LifeGoalCategory;
+  target_date?: string;
+  priority: 'low' | 'medium' | 'high';
+  image_url?: string;
+  status: LifeGoalStatus;
+  milestones?: LifeGoalMilestone[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type BucketListCategory =
+  | 'Travel'
+  | 'Experiences'
+  | 'Personal Challenges'
+  | 'Aspirations'
+  | 'Other';
+
+export interface BucketListItem {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  category: BucketListCategory;
+  image_url?: string;
+  is_completed: boolean;
+  completed_at?: string | null;
+  target_date?: string;
+  created_at: string;
+}
+
+// ==========================================
+// FEATURE 3: SELF-CARE ROUTINE TYPES
+// ==========================================
+
+export type RoutineCategory =
+  | 'Morning Routine'
+  | 'Evening Routine'
+  | 'Skincare Routine'
+  | 'Fitness Routine'
+  | 'Study Routine'
+  | 'Relaxation Routine'
+  | 'Custom Routine';
+
+export interface RoutineStep {
+  id: string;
+  routine_id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  duration_minutes: number;
+  step_order: number;
+  created_at: string;
+}
+
+export interface Routine {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  category: RoutineCategory;
+  preferred_time?: string;
+  is_paused: boolean;
+  is_archived: boolean;
+  reminder_time?: string;
+  reminder_enabled: boolean;
+  display_order: number;
+  steps?: RoutineStep[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineStepLog {
+  id: string;
+  routine_id: string;
+  step_id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  completed: boolean;
+  completed_at: string;
+}
+
+export interface RoutineConsistencyStats {
+  currentStreak: number;
+  longestStreak: number;
+  weeklyConsistency: number;
+  monthlyConsistency: number;
+  mostConsistentRoutine: string | null;
+  dailyHistory: Record<string, number>; // date -> count of completed steps
+}
+
+// ==========================================
+// Life Balance Wheel
+// ==========================================
+export interface LifeBalanceCategoryItem {
+  name: string;
+  description: string;
+  icon?: string;
+  suggestionIfLow: string;
+  suggestionIfHigh: string;
+}
+
+export interface LifeBalanceRating {
+  category: string;
+  score: number; // 1 to 10
+  description?: string;
+}
+
+export interface LifeBalanceAssessment {
+  id: string;
+  user_id: string;
+  challenge_id?: string | null;
+  plan_name: string;
+  ratings: LifeBalanceRating[];
+  overall_score: number;
+  notes?: string;
+  created_at: string;
+}
+
+// ==========================================
+// Dynamic GlowUp Progress Reports
+// ==========================================
+export type GlowUpReportType = 'weekly' | 'monthly' | 'final';
+
+export interface ConsistentHabitMetric {
+  title: string;
+  streak: number;
+  rate: number;
+}
+
+export interface HabitImprovementMetric {
+  title: string;
+  rate: number;
+}
+
+export interface AchievedMilestoneMetric {
+  title: string;
+  day_number: number;
+}
+
+export interface WheelCategoryDelta {
+  category: string;
+  delta: number;
+}
+
+export interface GlowUpReportMetrics {
+  plan_name: string;
+  total_duration_days: number;
+  current_day: number;
+  period_start_date: string;
+  period_end_date: string;
+  overall_completion_rate: number;
+  total_activities_logged: number;
+  completed_activities: number;
+  pending_activities: number;
+  previous_period_comparison?: number; // e.g. +8
+  // Goals
+  total_goals: number;
+  completed_goals: number;
+  in_progress_goals: number;
+  pending_goals: number;
+  goal_completion_rate: number;
+  // Habits
+  habit_completion_rate: number;
+  total_habit_checkins: number;
+  consistent_habits: ConsistentHabitMetric[];
+  habits_needing_improvement: HabitImprovementMetric[];
+  // Routines
+  completed_routine_steps: number;
+  routine_consistency_rate: number;
+  missed_routines: string[];
+  // Challenges & Milestones
+  achieved_milestones: AchievedMilestoneMetric[];
+  total_milestones: number;
+  active_challenge_status: string;
+  // Focus
+  total_focus_minutes: number;
+  // Achievements & Insights
+  achievements: string[];
+  areas_for_improvement: string[];
+  actionable_suggestions: string[];
+  // Life Balance Wheel Progress
+  life_balance_baseline?: number;
+  life_balance_current?: number;
+  life_balance_delta?: number;
+  wheel_category_improvements?: WheelCategoryDelta[];
+}
+
+export interface GlowUpReport {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  plan_name: string;
+  report_type: GlowUpReportType;
+  period_number: number;
+  period_title: string;
+  period_start_date: string;
+  period_end_date: string;
+  metrics: GlowUpReportMetrics;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
+// Food & Diet Tracker Types
+// ==========================================
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
+
+export interface FoodEntry {
+  id: string;
+  user_id: string;
+  food_name: string;
+  meal_type: MealType;
+  quantity?: string | null;
+  entry_date: string; // YYYY-MM-DD
+  entry_time?: string | null; // e.g. "08:30"
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyFoodSummary {
+  date: string;
+  totalEntries: number;
+  mealsLoggedCount: number; // e.g. 3 of 4
+  loggedMealTypes: MealType[];
+}
+
+
+
